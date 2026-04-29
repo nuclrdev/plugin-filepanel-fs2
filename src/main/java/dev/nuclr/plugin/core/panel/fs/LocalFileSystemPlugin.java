@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -171,10 +172,25 @@ public class LocalFileSystemPlugin implements NuclrPlugin, NuclrEventListener {
 		LocalFilePanel view = (LocalFilePanel) panel();
 		Path path = resource.getPath();
 		if (path != null && Files.isDirectory(path)) {
-			view.showDirectory(path);
+			view.showDirectory(path, selectionPath(resource));
 			return true;
 		}
 		return false;
+	}
+
+	private static Path selectionPath(NuclrResourcePath resource) {
+		if (resource == null || resource.getMetadata() == null) {
+			return null;
+		}
+		String raw = resource.getMetadata().get("selectedPath");
+		if (raw == null || raw.isBlank()) {
+			return null;
+		}
+		try {
+			return Path.of(raw);
+		} catch (InvalidPathException ex) {
+			return null;
+		}
 	}
 
 	public boolean requestOpen(Path path) {
@@ -339,7 +355,7 @@ public class LocalFileSystemPlugin implements NuclrPlugin, NuclrEventListener {
 				@SuppressWarnings("unchecked")
 				List<NuclrResourcePath> paths = (List<NuclrResourcePath>) event.get("paths");
 				markAccepted(event);
-				Runnable refreshSource = buildSourceRefresh(source);
+				Runnable refreshSource = buildSourceRefresh(source, event);
 				moveService.move(panel, paths, panel.getCurrentDirectory(), refreshSource);
 			}
 			return;
@@ -604,7 +620,10 @@ public class LocalFileSystemPlugin implements NuclrPlugin, NuclrEventListener {
 	 * @return a refresh runnable, or {@code null} if the source is not a local
 	 *         panel
 	 */
-	private static Runnable buildSourceRefresh(Object source) {
+	private static Runnable buildSourceRefresh(Object source, Map<String, Object> event) {
+		if (event != null && event.get("refreshSource") instanceof Runnable refreshSource) {
+			return refreshSource;
+		}
 		if (!(source instanceof LocalFilePanel sourcePanel)) {
 			return null;
 		}

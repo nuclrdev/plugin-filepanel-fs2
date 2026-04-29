@@ -364,9 +364,17 @@ public class MoveService {
 
     private static Path resolveTarget(Path source, Path sourceRoot, Path targetDir) {
         if (sourceRoot != null) {
-            return targetDir.resolve(sourceRoot.relativize(source));
+            return resolveRelativePath(targetDir, sourceRoot.relativize(source));
         }
         return targetDir.resolve(source.getFileName());
+    }
+
+    private static Path resolveRelativePath(Path targetDir, Path relativePath) {
+        Path resolved = targetDir;
+        for (Path part : relativePath) {
+            resolved = resolved.resolve(part.toString());
+        }
+        return resolved;
     }
 
     private static Path findFreeName(Path path) {
