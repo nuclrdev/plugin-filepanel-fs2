@@ -133,7 +133,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 		var resources = new ArrayList<PluginRoot>();
 		FileSystems.getDefault().getRootDirectories().forEach(p -> {
 			var res = new PluginRoot();
-			res.setObject(p);
+			res.setPath(new NuclrResourcePath(p));
 			res.setText(p.toString());
 			resources.add(res);
 		});
