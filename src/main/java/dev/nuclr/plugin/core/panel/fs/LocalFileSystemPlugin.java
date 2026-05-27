@@ -1,6 +1,5 @@
 package dev.nuclr.plugin.core.panel.fs;
 
-import java.awt.Component;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -10,29 +9,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import dev.nuclr.platform.events.NuclrEventListener;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin;
 import dev.nuclr.platform.plugin.NuclrMenuResource;
+import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
-import dev.nuclr.platform.plugin.NuclrResourcePath;
-import dev.nuclr.plugin.core.panel.fs.newFolder.CreateNewFolderService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventListener {
+public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrResource> {
 
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
 	private static final String GO_TO_PATH_SHORTCUT = IS_MAC ? "Shift+Cmd+G" : "Ctrl+Shift+G";
 
 	private String uuid = java.util.UUID.randomUUID().toString();
-
-	private static final String EventCopy = "filepanel.copy";
-	private static final String EventMove = "filepanel.move";
-	private static final String EventMakeFolder = "filepanel.makeFolder";
-	private static final String EventDelete = "filepanel.delete";
-	private static final String EventDeletePermanently = "filepanel.deletePermanently";
-	private static final String EventGoToPath = "filepanel.goToPath";
 
 	public static final String PluginId = "dev.nuclr.plugin.core.panel.fs";
 	private static final String PluginName = "Local Filesystem Panel";
@@ -44,14 +34,18 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	private static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
 	private static final String PluginDocUrl = PluginPageUrl;
 
+	static final List<String> ColumnNames = List.of(
+		FileNuclrResource.Name, 
+		FileNuclrResource.Size, 
+		FileNuclrResource.Date, 
+		FileNuclrResource.Time
+	);
+
 	private NuclrPluginContext context;
 
-	private NuclrResourcePath currentFolder;
-
-	private final CopyService copyService = new CopyService();
-	private final MoveService moveService = new MoveService();
-	
 	private boolean focused = false;
+
+	private FileNuclrResource currentFolder;
 
 	@Override
 	public String id() {
@@ -97,11 +91,38 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	public String docUrl() {
 		return PluginDocUrl;
 	}
+	
+	public LocalFileSystemPlugin() {
+		
+		var defaultPath = getDefaultDrivePath();
+		
+	}
+	
+	private Path getDefaultDrivePath() {
+
+		String os = System.getProperty("os.name").toLowerCase();
+
+		if (os.contains("win")) {
+			// Windows: return a virtual "This PC" root — use null-root path
+			// FileSystems.getDefault().getRootDirectories() gives C:\, D:\, etc.
+			// But "This PC" itself has no real Path equivalent; conventionally use the
+			// first root
+			// or a sentinel. Here we return the user's home drive root.
+			Path home = Path.of(System.getProperty("user.home"));
+			return home.getRoot(); // e.g. C:\
+		}
+
+		// Unix / macOS / Linux
+		return Path.of("/");
+	}	
 
 	@Override
-	public List<NuclrMenuResource> menuItems(NuclrResourcePath source) {
+	public List<NuclrMenuResource> menuItems(FileNuclrResource source) {
+		
+		var file = (FileNuclrResource) source;
+		
 		List<NuclrMenuResource> items = new ArrayList<>();
-		boolean isDirectory = source != null && source.getPath() != null && Files.isDirectory(source.getPath());
+		boolean isDirectory = source != null && file.getPath() != null && Files.isDirectory(file.getPath());
 		addDefaultMenuItems(items, isDirectory);
 		addAltMenuItems(items);
 		addCtrlMenuItems(items);
@@ -130,15 +151,15 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	}
 
 	@Override
-	public PluginRoots getPluginRoots() {
+	public PluginRootMenuItems<FileNuclrResource> getPluginRootMenuItems() {
 		
-		var pluginRoots = new PluginRoots();
+		var pluginRoots = new PluginRootMenuItems<FileNuclrResource>();
 		
-		var resources = new ArrayList<PluginRoot>();
+		var resources = new ArrayList<PluginRootMenuItem<FileNuclrResource>>();
 		
 		FileSystems.getDefault().getRootDirectories().forEach(p -> {
-			var res = new PluginRoot();
-			res.setPath(new NuclrResourcePath(p));
+			var res = new PluginRootMenuItem<FileNuclrResource>();
+			res.setPath(new FileNuclrResource(p));
 			res.setText(p.toString());
 			res.setUuid(id() + ":" + p.toString());
 			resources.add(res);
@@ -151,19 +172,37 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	}
 
 	@Override
-	public boolean openResource(NuclrResourcePath resource, AtomicBoolean cancelled) {
+	public NuclrResourceData<FileNuclrResource> openResource(FileNuclrResource resource, AtomicBoolean cancelled) {
 
 		if (cancelled != null && cancelled.get()) {
-			return false;
+			return null;
 		}
 
 		if (resource == null) {
-			return false;
+			return null;
 		}
+		
+		if (currentFolder.getPath() == null || !Files.isDirectory(currentFolder.getPath())) {
+			return null;
+		}
+		
+		this.currentFolder = (FileNuclrResource) resource;
+		
+		var entries = new NuclrResourceData<FileNuclrResource>();
+		
+		try {
+			Files.list(currentFolder.getPath()).forEach(p -> {
+				if (cancelled != null && cancelled.get()) {
+					return;
+				}
+				entries.getEntries().add(new FileNuclrResource(p));
+			});
+		} catch (IOException e) {
+			log.error("Failed to list directory: " + currentFolder.getPath(), e);
+		}
+		
 
-		this.currentFolder = resource;
-
-		return true;
+		return entries;
 
 	}
 
@@ -176,77 +215,6 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 		if (event != null && event.get("accepted") instanceof AtomicBoolean accepted) {
 			accepted.set(true);
 		}
-	}
-
-	public void copyIntoCurrentPanel(List<NuclrResourcePath> paths, Component component, Path targetDir) {
-		copyService.copy(component, paths, targetDir);
-	}
-
-	public void moveIntoCurrentPanel(List<NuclrResourcePath> paths, Component component, Path targetDir) {
-		moveService.move(component, paths, targetDir);
-	}
-
-	@Override
-	public void handleMessage(Object source, String type, Map<String, Object> event) {
-
-		// Ignore its own events
-		if (source == this) {
-			return;
-		}
-
-		log.info("Received message - Source: {}, Type: {}, Event: {}", type, event);
-
-		if (EventCopy.equals(type)) {
-			@SuppressWarnings("unchecked")
-			List<NuclrResourcePath> paths = (List<NuclrResourcePath>) event.get("paths");
-			var component = (Component) event.get("component");
-			var targetDir = (Path) event.get("targetDir");
-			markAccepted(event);
-			copyIntoCurrentPanel(paths, component, targetDir);
-			return;
-		}
-
-		if (EventMove.equals(type)) {
-			@SuppressWarnings("unchecked")
-			List<NuclrResourcePath> paths = (List<NuclrResourcePath>) event.get("paths");
-			markAccepted(event);
-			var component = (Component) event.get("component");
-			var targetDir = (Path) event.get("targetDir");
-			moveService.move(component, paths, targetDir);
-			return;
-		}
-
-		if (EventMakeFolder.equals(type)) {
-			var component = (Component) event.get("component");
-			new CreateNewFolderService().createNewFolder(component, this.currentFolder);
-			return;
-		}
-
-		if (EventDelete.equals(type)) {
-			var selection = (List<NuclrResourcePath>) event.get("selection");
-			deleteSelection(false, selection);
-			return;
-		}
-
-		if (EventDeletePermanently.equals(type)) {
-			var selection = (List<NuclrResourcePath>) event.get("selection");
-			deleteSelection(true, selection);
-			return;
-		}
-		if (EventGoToPath.equals(type)) {
-			showGoToPathDialog();
-			return;
-		}
-	}
-
-	private void deleteSelection(boolean b, List<NuclrResourcePath> selection) {
-		// TODO Auto-generated method stub
-
-	}
-
-	private void showGoToPathDialog() {
-		// TODO Auto-generated method stub
-
 	}
 
 	private static void addDefaultMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
@@ -322,7 +290,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	}
 
 	@Override
-	public NuclrResourcePath getCurrentResource() {
+	public FileNuclrResource getCurrentResource() {
 		return this.currentFolder;
 	}
 
@@ -341,29 +309,13 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	}
 
 	@Override
-	public boolean supports(NuclrResourcePath resource) {
+	public boolean supports(FileNuclrResource resource) {
 		return resource != null 
 				&& resource.getPath() != null 
 				&& Files.exists(resource.getPath())
 				&& Files.isDirectory(resource.getPath());
 	}
 
-	@Override
-	public List<NuclrResourcePath> getChildrenForCurrentResource() {
-		
-		var children = new ArrayList<NuclrResourcePath>();
-		
-		try {
-			Files.list(this.currentFolder.getPath()).forEach(path -> {
-				children.add(new NuclrResourcePath(path));
-			});
-		} catch (IOException e) {
-			log.error("Failed to list children for resource: {}", this.currentFolder, e);
-			return List.of();
-		}
-		
-		return children;
-	}
 
 	@Override
 	public String getCurrentLocationDisplayText() {
@@ -374,12 +326,12 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	}
 
 	@Override
-	public String getSelectionSummaryText(List<NuclrResourcePath> selectedResources) {
+	public String getSelectionSummaryText(List<FileNuclrResource> selectedResources) {
 		if (selectedResources == null || selectedResources.isEmpty()) {
 			return getCurrentLocationDisplayText();
 		}
 		if (selectedResources.size() == 1) {
-			NuclrResourcePath resource = selectedResources.get(0);
+			var resource = selectedResources.get(0);
 			Path path = resource.getPath();
 			boolean directory = path != null && Files.isDirectory(path);
 			boolean link = isLink(path);
@@ -392,7 +344,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 		long totalBytes = 0L;
 		int fileCount = 0;
 		int folderCount = 0;
-		for (NuclrResourcePath resource : selectedResources) {
+		for (var resource : selectedResources) {
 			Path path = resource.getPath();
 			if (path != null && Files.isDirectory(path)) {
 				folderCount++;
@@ -406,7 +358,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 				+ ",  folders: " + folderCount;
 	}
 
-	private static long sizeBytes(NuclrResourcePath resource, boolean directory) {
+	private static long sizeBytes(FileNuclrResource resource, boolean directory) {
 		if (resource == null || directory) {
 			return 0L;
 		}
@@ -418,7 +370,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 				// Fall back to the resource payload below.
 			}
 		}
-		return resource.getSizeBytes();
+		return resource.getPath().toFile().length();
 	}
 
 	private static boolean isLink(Path path) {
@@ -442,6 +394,11 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin, NuclrEventLi
 	@Override
 	public NuclrPluginContext getContext() {
 		return this.context;
+	}
+
+	@Override
+	public void handleMessage(Object source, String type, Map<String, Object> eventData, NuclrPluginCallback callback) {
+		
 	}
 
 }
