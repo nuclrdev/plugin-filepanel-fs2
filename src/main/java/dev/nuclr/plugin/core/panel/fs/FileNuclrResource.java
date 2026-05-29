@@ -144,4 +144,13 @@ public class FileNuclrResource extends NuclrResource {
 		return path != null ? path.toAbsolutePath().normalize().toString() : "";
 	}
 
+	@Override
+	public long getLength() {
+		try {
+			return Files.exists(path) && !Files.isDirectory(path) ? Files.size(path) : 0L;
+		} catch (IOException e) {
+			return 0L;
+		}
+	}
+
 }

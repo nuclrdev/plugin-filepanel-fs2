@@ -2,13 +2,20 @@ package dev.nuclr.plugin.core.panel.fs;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
+import dev.nuclr.platform.events.NuclrEventListener;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin;
 import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
@@ -16,7 +23,7 @@ import dev.nuclr.platform.plugin.NuclrPluginContext;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrResource> {
+public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclrPlugin<FileNuclrResource> {
 
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
@@ -34,12 +41,8 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 	private static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
 	private static final String PluginDocUrl = PluginPageUrl;
 
-	static final List<String> ColumnNames = List.of(
-		FileNuclrResource.Name, 
-		FileNuclrResource.Size, 
-		FileNuclrResource.Date, 
-		FileNuclrResource.Time
-	);
+	static final List<String> ColumnNames = List.of(FileNuclrResource.Name, FileNuclrResource.Size,
+			FileNuclrResource.Date, FileNuclrResource.Time);
 
 	private NuclrPluginContext context;
 
@@ -91,13 +94,16 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 	public String docUrl() {
 		return PluginDocUrl;
 	}
-	
+
 	public LocalFileSystemPlugin() {
-		
+
 		var defaultPath = getDefaultDrivePath();
-		
+
+		log.info("Default drive path: " + defaultPath);
+		this.currentFolder = new FileNuclrResource(defaultPath);
+
 	}
-	
+
 	private Path getDefaultDrivePath() {
 
 		String os = System.getProperty("os.name").toLowerCase();
@@ -114,13 +120,13 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 
 		// Unix / macOS / Linux
 		return Path.of("/");
-	}	
+	}
 
 	@Override
 	public List<NuclrMenuResource> menuItems(FileNuclrResource source) {
-		
+
 		var file = (FileNuclrResource) source;
-		
+
 		List<NuclrMenuResource> items = new ArrayList<>();
 		boolean isDirectory = source != null && file.getPath() != null && Files.isDirectory(file.getPath());
 		addDefaultMenuItems(items, isDirectory);
@@ -152,11 +158,11 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 
 	@Override
 	public PluginRootMenuItems<FileNuclrResource> getPluginRootMenuItems() {
-		
+
 		var pluginRoots = new PluginRootMenuItems<FileNuclrResource>();
-		
+
 		var resources = new ArrayList<PluginRootMenuItem<FileNuclrResource>>();
-		
+
 		FileSystems.getDefault().getRootDirectories().forEach(p -> {
 			var res = new PluginRootMenuItem<FileNuclrResource>();
 			res.setPath(new FileNuclrResource(p));
@@ -164,10 +170,10 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 			res.setUuid(id() + ":" + p.toString());
 			resources.add(res);
 		});
-		
+
 		pluginRoots.setRoots(resources);
 		pluginRoots.setTitle("Local Filesystem");
-		
+
 		return pluginRoots;
 	}
 
@@ -181,15 +187,15 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 		if (resource == null) {
 			return null;
 		}
-		
+
 		if (currentFolder.getPath() == null || !Files.isDirectory(currentFolder.getPath())) {
 			return null;
 		}
-		
+
 		this.currentFolder = (FileNuclrResource) resource;
-		
+
 		var entries = new NuclrResourceData<FileNuclrResource>();
-		
+
 		try {
 			Files.list(currentFolder.getPath()).forEach(p -> {
 				if (cancelled != null && cancelled.get()) {
@@ -200,7 +206,6 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 		} catch (IOException e) {
 			log.error("Failed to list directory: " + currentFolder.getPath(), e);
 		}
-		
 
 		return entries;
 
@@ -253,13 +258,12 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 		items.add(menu("Sort menu", "Ctrl+F12", "sortMenu"));
 	}
 
-	private static void addShiftMenuItems(List<NuclrMenuResource> items,
-			boolean isDirectory) {
+	private static void addShiftMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
 		items.add(menu("Create file", "Shift+F4", "createFile"));
 		items.add(menu("Go to path", GO_TO_PATH_SHORTCUT, "goToPath"));
 		items.add(menu("Delete Permanently", "Shift+F8", "deletePermanent"));
 	}
-	
+
 	private static NuclrMenuResource menu(String name, String functionKey, String eventType) {
 		return new NuclrMenuResource(name, functionKey, eventType);
 	}
@@ -310,12 +314,9 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 
 	@Override
 	public boolean supports(FileNuclrResource resource) {
-		return resource != null 
-				&& resource.getPath() != null 
-				&& Files.exists(resource.getPath())
+		return resource != null && resource.getPath() != null && Files.exists(resource.getPath())
 				&& Files.isDirectory(resource.getPath());
 	}
-
 
 	@Override
 	public String getCurrentLocationDisplayText() {
@@ -336,8 +337,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 			boolean directory = path != null && Files.isDirectory(path);
 			boolean link = isLink(path);
 			String type = link ? "Link" : (directory ? "Folder" : humanReadableSize(sizeBytes(resource, directory)));
-			String name = resource.getName() != null && !resource.getName().isBlank()
-					? resource.getName()
+			String name = resource.getName() != null && !resource.getName().isBlank() ? resource.getName()
 					: path == null ? "" : path.getFileName() == null ? path.toString() : path.getFileName().toString();
 			return name + "  |  " + type;
 		}
@@ -353,9 +353,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 				totalBytes += sizeBytes(resource, false);
 			}
 		}
-		return "Bytes: " + humanReadableSize(totalBytes)
-				+ ",  files: " + fileCount
-				+ ",  folders: " + folderCount;
+		return "Bytes: " + humanReadableSize(totalBytes) + ",  files: " + fileCount + ",  folders: " + folderCount;
 	}
 
 	private static long sizeBytes(FileNuclrResource resource, boolean directory) {
@@ -382,7 +380,7 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 			return sizeBytes + " B";
 		}
 		double value = sizeBytes;
-		String[] units = {"KB", "MB", "GB", "TB", "PB"};
+		String[] units = { "KB", "MB", "GB", "TB", "PB" };
 		int unitIndex = -1;
 		while (value >= 1024 && unitIndex < units.length - 1) {
 			value /= 1024;
@@ -398,7 +396,65 @@ public class LocalFileSystemPlugin implements FilePanelNuclrPlugin <FileNuclrRes
 
 	@Override
 	public void handleMessage(Object source, String type, Map<String, Object> eventData, NuclrPluginCallback callback) {
-		
+
+	}
+
+	@Override
+	public void walkDescendants(FileNuclrResource resource, Consumer<FileNuclrResource> visitor,
+			AtomicBoolean cancelled, boolean recursive) throws IOException {
+
+		var root = resource.getPath();
+
+		if (!recursive) {
+			// Single level only — list direct children, no descent.
+			try (var stream = Files.newDirectoryStream(root)) {
+				for (var child : stream) {
+					if (isCancelled(cancelled))
+						return;
+					visitor.accept(new FileNuclrResource(child));
+				}
+			} catch (IOException e) {
+				log.error("Error listing {}: {}", resource.getFullPath(), e.getMessage(), e);
+				throw e;
+			}
+			return;
+		}
+
+		try {
+			Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE,
+					new SimpleFileVisitor<>() {
+						@Override
+						public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+							if (isCancelled(cancelled))
+								return FileVisitResult.TERMINATE;
+							if (!dir.equals(root)) {
+								visitor.accept(new FileNuclrResource(dir));
+							}
+							return FileVisitResult.CONTINUE;
+						}
+
+						@Override
+						public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+							if (isCancelled(cancelled))
+								return FileVisitResult.TERMINATE;
+							visitor.accept(new FileNuclrResource(file));
+							return FileVisitResult.CONTINUE;
+						}
+
+						@Override
+						public FileVisitResult visitFileFailed(Path file, IOException exc) {
+							log.warn("Skipping inaccessible path {}: {}", file, exc.getMessage());
+							return FileVisitResult.CONTINUE;
+						}
+					});
+		} catch (IOException e) {
+			log.error("Error walking file tree for resource {}: {}", resource.getFullPath(), e.getMessage(), e);
+			throw e;
+		}
+	}
+
+	private static boolean isCancelled(AtomicBoolean cancelled) {
+		return (cancelled != null && cancelled.get()) || Thread.currentThread().isInterrupted();
 	}
 
 }
