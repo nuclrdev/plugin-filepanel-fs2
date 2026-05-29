@@ -7,7 +7,7 @@ Official Nuclr core plugin that provides local filesystem roots (drives/mount po
 - Plugin ID: `dev.nuclr.plugin.core.panel.fs`
 - Name: `Local Filesystem Panel`
 - Version: `1.0.0`
-- Provider class: `dev.nuclr.plugin.core.panel.fs.LocalFilePanelProvider`
+- Plugin class: `dev.nuclr.plugin.core.panel.fs.LocalFileSystemPlugin`
 - License: Apache-2.0
 
 This plugin registers a `NuclrPlugin` that exposes one root per entry returned by `FileSystems.getDefault().getRootDirectories()`:
@@ -27,7 +27,7 @@ This plugin registers a `NuclrPlugin` that exposes one root per entry returned b
 - Java 21
 - Maven 3.9+ (recommended)
 - Nuclr platform SDK dependency:
-  - `dev.nuclr:platform-sdk:2.0.3`
+  - `dev.nuclr:platform-sdk:3.0.1`
 
 ## Build
 
@@ -65,11 +65,8 @@ Plugin ZIP contents:
 ## Repository Layout
 
 ```text
-src/main/java/dev/nuclr/plugin/core/panel/fs/LocalFilePanelProvider.java
+src/main/java/dev/nuclr/plugin/core/panel/fs/LocalFileSystemPlugin.java
+src/main/java/dev/nuclr/plugin/core/panel/fs/FileNuclrResource.java
 src/assembly/plugin.xml
 pom.xml
 ```
-
-## Development Notes
-
-- `deploy.bat` appears to contain artifact names from another plugin (`quick-view-3d`) and should be adjusted before use in this repo.

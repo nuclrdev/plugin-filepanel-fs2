@@ -188,7 +188,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return null;
 		}
 
-		if (currentFolder.getPath() == null || !Files.isDirectory(currentFolder.getPath())) {
+		if (resource.getPath() == null || !Files.isDirectory(resource.getPath())) {
 			return null;
 		}
 
@@ -196,8 +196,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		var entries = new NuclrResourceData<FileNuclrResource>();
 
-		try {
-			Files.list(currentFolder.getPath()).forEach(p -> {
+		try (var stream = Files.list(currentFolder.getPath())) {
+			stream.forEach(p -> {
 				if (cancelled != null && cancelled.get()) {
 					return;
 				}
