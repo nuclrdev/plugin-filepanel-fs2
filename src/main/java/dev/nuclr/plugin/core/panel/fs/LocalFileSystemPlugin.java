@@ -157,21 +157,21 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	@Override
-	public PluginRootMenuItems<FileNuclrResource> getPluginRootMenuItems() {
+	public MenuItemsHolder<FileNuclrResource> getPluginMenuItems() {
 
-		var pluginRoots = new PluginRootMenuItems<FileNuclrResource>();
+		var pluginRoots = new MenuItemsHolder<FileNuclrResource>();
 
-		var resources = new ArrayList<PluginRootMenuItem<FileNuclrResource>>();
+		var resources = new ArrayList<MenuItem<FileNuclrResource>>();
 
 		FileSystems.getDefault().getRootDirectories().forEach(p -> {
-			var res = new PluginRootMenuItem<FileNuclrResource>();
+			var res = new MenuItem<FileNuclrResource>();
 			res.setPath(new FileNuclrResource(p));
 			res.setText(p.toString());
 			res.setUuid(id() + ":" + p.toString());
 			resources.add(res);
 		});
 
-		pluginRoots.setRoots(resources);
+		pluginRoots.setMenuItems(resources);
 		pluginRoots.setTitle("Local Filesystem");
 
 		return pluginRoots;

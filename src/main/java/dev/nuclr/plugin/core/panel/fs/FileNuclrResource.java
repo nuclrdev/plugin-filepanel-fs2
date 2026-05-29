@@ -21,14 +21,18 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 @Data
+@Slf4j
 public class FileNuclrResource extends NuclrResource {
 
 	public static final String Name = "Name";
@@ -42,7 +46,12 @@ public class FileNuclrResource extends NuclrResource {
 
 		this.path = path;
 
-		this.metadata.put(Name, path.getFileName().toString());
+		try {
+			this.metadata.put(Name, path.getFileName().toString());
+		} catch (Exception e) {
+			this.metadata.put(Name, path.toString());
+		}
+		
 		try {
 			this.metadata.put(Size, Files.size(path));
 		} catch (Exception e) {
@@ -58,7 +67,6 @@ public class FileNuclrResource extends NuclrResource {
 		try {
 			this.metadata.put(Time, Files.getLastModifiedTime(path).toMillis());
 		} catch (IOException e) {
-
 			this.metadata.put(Time, 0L);
 		}
 
@@ -71,7 +79,7 @@ public class FileNuclrResource extends NuclrResource {
 
 	@Override
 	public String getName() {
-		return path.getFileName().toString();
+		return this.metadata.get(Name).toString();
 	}
 
 	@Override
@@ -88,17 +96,6 @@ public class FileNuclrResource extends NuclrResource {
 		case 3 -> Time;
 		default -> throw new IllegalArgumentException("Invalid column index: " + columnIndex);
 		}, "").toString();
-	}
-
-	@Override
-	public LocalDate getLastModifiedDateTime() {
-		try {
-			return Files.exists(path)
-					? Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
-					: LocalDate.ofEpochDay(0);
-		} catch (IOException e) {
-			return LocalDate.ofEpochDay(0);
-		}
 	}
 
 	@Override
@@ -151,6 +148,38 @@ public class FileNuclrResource extends NuclrResource {
 		} catch (IOException e) {
 			return 0L;
 		}
+	}
+
+	@Override
+	public LocalDateTime getLastAccessDateTime() {
+		try {
+			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
+			return attrs.lastAccessTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+		} catch (IOException e) {
+			log.warn("Failed to read last access time for {}: {}", path, e.getMessage());
+		}
+		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
+	}
+
+	@Override
+	public LocalDateTime getCreateDateTime() {
+		try {
+			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
+			return attrs.creationTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+		} catch (IOException e) {
+			log.warn("Failed to read creation time for {}: {}", path, e.getMessage());
+		}
+		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
+	}
+
+	@Override
+	public LocalDateTime getLastModifiedDateTime() {
+		try {
+			return Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+		} catch (IOException e) {
+			log.warn("Failed to read last modified time for {}: {}", path, e.getMessage());
+		}
+		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
 	}
 
 }
