@@ -27,6 +27,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
+import org.apache.commons.io.FileUtils;
+
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +53,7 @@ public class FileNuclrResource extends NuclrResource {
 		} catch (Exception e) {
 			this.metadata.put(Name, path.toString());
 		}
-		
+
 		try {
 			this.metadata.put(Size, Files.size(path));
 		} catch (Exception e) {
@@ -59,15 +61,14 @@ public class FileNuclrResource extends NuclrResource {
 		}
 
 		try {
-			this.metadata.put(Date, Files.getLastModifiedTime(path).toMillis());
+			var lastModified = Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault())
+					.toLocalDateTime();
+			this.metadata.put(Date, lastModified.toLocalDate().toString());
+			this.metadata.put(Time, lastModified.toLocalTime().toString());
 		} catch (IOException e) {
-			this.metadata.put(Date, 0L);
-		}
-
-		try {
-			this.metadata.put(Time, Files.getLastModifiedTime(path).toMillis());
-		} catch (IOException e) {
-			this.metadata.put(Time, 0L);
+			log.warn("Failed to read last modified time for {}: {}", path, e.getMessage());
+			this.metadata.put(Date, "");
+			this.metadata.put(Time, "");
 		}
 
 	}
@@ -89,18 +90,57 @@ public class FileNuclrResource extends NuclrResource {
 
 	@Override
 	public String getColumnValue(int columnIndex) {
-		return this.metadata.getOrDefault(switch (columnIndex) {
+
+		final var str = switch (columnIndex) {
 		case 0 -> Name;
 		case 1 -> Size;
 		case 2 -> Date;
 		case 3 -> Time;
 		default -> throw new IllegalArgumentException("Invalid column index: " + columnIndex);
-		}, "").toString();
+		};
+
+		final var value = this.metadata.getOrDefault(str, "");
+
+		// Size
+		if (str.equals(Size) && value instanceof Long size) {
+			
+			if (this.isFolder()) {
+				return "Folder";
+			}
+			
+			return FileUtils.byteCountToDisplaySize(size);
+		}
+		
+		// Date - convert to dd/MM/yyyy
+		if (str.equals(Date) && value instanceof String dateStr) {
+			try {
+				var date = LocalDateTime.parse(dateStr + "T00:00:00");
+				return date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+			} catch (Exception e) {
+				return dateStr;
+			}
+		}
+		
+		// Time - convert to HH:mm
+		if (str.equals(Time) && value instanceof String timeStr) {
+			try {
+				var time = LocalDateTime.parse("1970-01-01T" + timeStr);
+				return time.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+			} catch (Exception e) {
+				return timeStr;
+			}
+		}
+		
+
+		return value.toString();
+
 	}
 
 	@Override
 	public boolean isSystem() {
+
 		try {
+
 			if (!Files.exists(path)) {
 				return false;
 			}
