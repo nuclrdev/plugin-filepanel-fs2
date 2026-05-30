@@ -195,6 +195,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		this.currentFolder = (FileNuclrResource) resource;
 
 		var entries = new NuclrResourceData<FileNuclrResource>();
+		entries.setColumnNames(ColumnNames);
 
 		try (var stream = Files.list(currentFolder.getPath())) {
 			stream.forEach(p -> {
