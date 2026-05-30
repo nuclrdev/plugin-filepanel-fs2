@@ -197,6 +197,30 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		var entries = new NuclrResourceData<FileNuclrResource>();
 		entries.setColumnNames(ColumnNames);
 
+		// Add the parent directory entry if not at the root level
+		if (currentFolder.getPath().getParent() != null) {
+			
+			var parent = new FileNuclrResource(resource.getPath().getParent()) {
+
+				@Override
+				public boolean isParent() {
+					return true;
+				}
+
+				@Override
+				public String getName() {
+					return "..";
+				}
+
+				@Override
+				public String getColumnValue(int columnIndex) {
+					return columnIndex == 0 ? getName() : super.getColumnValue(columnIndex);
+				}
+
+			};
+			entries.getEntries().add(parent);
+		}
+		
 		try (var stream = Files.list(currentFolder.getPath())) {
 			stream.forEach(p -> {
 				if (cancelled != null && cancelled.get()) {
