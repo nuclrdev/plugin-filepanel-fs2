@@ -27,117 +27,51 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
-import org.apache.commons.io.FileUtils;
-
 import dev.nuclr.platform.plugin.NuclrResource;
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
-@Data
 @Slf4j
-public class FileNuclrResource extends NuclrResource {
+final class FileNuclrResource {
 
-	public static final String Name = "Name";
-	public static final String Size = "Size";
-	public static final String Date = "Date";
-	public static final String Time = "Time";
+	public static final String KeyPath = "Path";
 
-	private Path path;
+	public static NuclrResource build(final Path path) {
 
-	public FileNuclrResource(Path path) {
+		final var r = new NuclrResource();
 
-		this.path = path;
+		final var metadata = r.getMetadata();
 
+		// Path
+		metadata.put(KeyPath, path);
+
+		
 		try {
-			this.metadata.put(Name, path.getFileName().toString());
+			r.setName(path.getFileName().toString());
 		} catch (Exception e) {
-			this.metadata.put(Name, path.toString());
-		}
-
-		try {
-			this.metadata.put(Size, Files.size(path));
-		} catch (Exception e) {
-			this.metadata.put(Size, 0L);
-		}
-
-		try {
-			var lastModified = Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault())
-					.toLocalDateTime();
-			this.metadata.put(Date, lastModified.toLocalDate().toString());
-			this.metadata.put(Time, lastModified.toLocalTime().toString());
-		} catch (IOException e) {
-			log.warn("Failed to read last modified time for {}: {}", path, e.getMessage());
-			this.metadata.put(Date, "");
-			this.metadata.put(Time, "");
-		}
-
-	}
-
-	@Override
-	public String getUuid() {
-		return path.toAbsolutePath().toString();
-	}
-
-	@Override
-	public String getName() {
-		return this.metadata.get(Name).toString();
-	}
-
-	@Override
-	public boolean isFolder() {
-		return Files.isDirectory(path);
-	}
-
-	@Override
-	public String getColumnValue(int columnIndex) {
-
-		final var str = switch (columnIndex) {
-		case 0 -> Name;
-		case 1 -> Size;
-		case 2 -> Date;
-		case 3 -> Time;
-		default -> throw new IllegalArgumentException("Invalid column index: " + columnIndex);
-		};
-
-		final var value = this.metadata.getOrDefault(str, "");
-
-		// Size
-		if (str.equals(Size) && value instanceof Long size) {
-			
-			if (this.isFolder()) {
-				return "Folder";
-			}
-			
-			return FileUtils.byteCountToDisplaySize(size);
+			r.setName(path.toString());
 		}
 		
-		// Date - convert to dd/MM/yyyy
-		if (str.equals(Date) && value instanceof String dateStr) {
-			try {
-				var date = LocalDateTime.parse(dateStr + "T00:00:00");
-				return date.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-			} catch (Exception e) {
-				return dateStr;
-			}
-		}
+		r.setFullPath(getFullPath(path));
+		r.setUuid(path.toAbsolutePath().toString());
+		r.setFolder(Files.isDirectory(path));
+		r.setLength(getLength(path));
+		r.setSystem(isSystem(path));
+		r.setLink(isLink(path));
+		r.setHidden(isHidden(path));
+		r.setLastModifiedDateTime(getLastModifiedDateTime(path));
+		r.setCreatedDateTime(getCreateDateTime(path));
+		r.setLastAccessDateTime(getLastAccessDateTime(path));
 		
-		// Time - convert to HH:mm
-		if (str.equals(Time) && value instanceof String timeStr) {
-			try {
-				var time = LocalDateTime.parse("1970-01-01T" + timeStr);
-				return time.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
-			} catch (Exception e) {
-				return timeStr;
-			}
-		}
-		
+		r.getColumnValues().add(r.getName());
+		r.getColumnValues().add(r.isFolder() ? "" : String.valueOf(r.getLength()));
+		r.getColumnValues().add(r.getLastModifiedDateTime().toString());
+		r.getColumnValues().add(r.getCreatedDateTime().toString());
 
-		return value.toString();
+		return r;
 
 	}
 
-	@Override
-	public boolean isSystem() {
+	private static boolean isSystem(Path path) {
 
 		try {
 
@@ -157,8 +91,7 @@ public class FileNuclrResource extends NuclrResource {
 		}
 	}
 
-	@Override
-	public boolean isHidden() {
+	private static boolean isHidden(Path path) {
 		try {
 			return Files.exists(path) && Files.isHidden(path);
 		} catch (IOException e) {
@@ -166,23 +99,19 @@ public class FileNuclrResource extends NuclrResource {
 		}
 	}
 
-	@Override
-	public boolean isParent() {
+	private static boolean hasParent(Path path) {
 		return path != null && path.getParent() != null;
 	}
 
-	@Override
-	public boolean isLink() {
+	private static boolean isLink(Path path) {
 		return path != null && Files.isSymbolicLink(path);
 	}
 
-	@Override
-	public String getFullPath() {
+	private static String getFullPath(Path path) {
 		return path != null ? path.toAbsolutePath().normalize().toString() : "";
 	}
 
-	@Override
-	public long getLength() {
+	private static long getLength(Path path) {
 		try {
 			return Files.exists(path) && !Files.isDirectory(path) ? Files.size(path) : 0L;
 		} catch (IOException e) {
@@ -190,8 +119,7 @@ public class FileNuclrResource extends NuclrResource {
 		}
 	}
 
-	@Override
-	public LocalDateTime getLastAccessDateTime() {
+	private static LocalDateTime getLastAccessDateTime(Path path) {
 		try {
 			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
 			return attrs.lastAccessTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
@@ -201,8 +129,7 @@ public class FileNuclrResource extends NuclrResource {
 		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
 	}
 
-	@Override
-	public LocalDateTime getCreateDateTime() {
+	private static LocalDateTime getCreateDateTime(Path path) {
 		try {
 			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
 			return attrs.creationTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
@@ -212,8 +139,7 @@ public class FileNuclrResource extends NuclrResource {
 		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
 	}
 
-	@Override
-	public LocalDateTime getLastModifiedDateTime() {
+	private static LocalDateTime getLastModifiedDateTime(Path path) {
 		try {
 			return Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
 		} catch (IOException e) {
