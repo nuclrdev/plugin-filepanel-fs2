@@ -125,7 +125,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	@Override
 	public List<NuclrMenuResource> menuItems(NuclrResource source) {
 
-		Path path = source.getMetadata(FileNuclrResource.KeyPath, null);
+		Path path = source == null ? null : source.getMetadata(FileNuclrResource.KeyPath, null);
 		
 		List<NuclrMenuResource> items = new ArrayList<>();
 		boolean isDirectory = source != null && path != null && Files.isDirectory(path);
@@ -206,7 +206,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			parent.setParent(true);
 			parent.setName("..");
 			parent.setFullPath("..");
-					
+			parent.getColumnValues().set(0, "..");
 			entries.getEntries().add(parent);
 		}
 
