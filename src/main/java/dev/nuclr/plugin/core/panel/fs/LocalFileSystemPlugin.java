@@ -178,7 +178,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	@Override
-	public NuclrResourceData openResource(NuclrResource resource, AtomicBoolean cancelled) {
+	public NuclrResourceData openResource(NuclrResource parent, NuclrResource resource, AtomicBoolean cancelled) {
 
 		if (cancelled != null && cancelled.get()) {
 			return null;
@@ -202,12 +202,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		// Add the parent directory entry if not at the root level
 		if (path.getParent() != null) {
 
-			var parent = FileNuclrResource.build(path.getParent());
-			parent.setParent(true);
-			parent.setName("..");
-			parent.setFullPath("..");
-			parent.getColumnValues().set(0, "..");
-			entries.getEntries().add(parent);
+			var parentCopy = FileNuclrResource.build(path.getParent());
+			parentCopy.setParent(true);
+			parentCopy.setName("..");
+			parentCopy.setFullPath("..");
+			parentCopy.getColumnValues().set(0, "..");
+			entries.getEntries().add(parentCopy);
 		}
 
 		try (var stream = Files.list(path)) {
