@@ -26,52 +26,25 @@ import java.nio.file.attribute.DosFileAttributes;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.HashMap;
+
+import org.apache.commons.lang3.SerializationUtils;
 
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-final class FileNuclrResource {
+final class Helper {
 
-	public static final String KeyPath = "Path";
-	
-	
 	public static NuclrResource copy(final NuclrResource source) {
-		
-		final var copy = new NuclrResource();
-		
-		copy.setName(source.getName());
-		copy.setFullPath(source.getFullPath());
-		copy.setUuid(source.getUuid());
-		copy.setFolder(source.isFolder());
-		copy.setLength(source.getLength());
-		copy.setSystem(source.isSystem());
-		copy.setLink(source.isLink());
-		copy.setHidden(source.isHidden());
-		copy.setLastModifiedDateTime(source.getLastModifiedDateTime());
-		copy.setCreatedDateTime(source.getCreatedDateTime());
-		copy.setLastAccessDateTime(source.getLastAccessDateTime());
-		copy.setParent(source.isParent());
-		
-		copy.setMetadata(new HashMap<>(source.getMetadata()));
-		copy.setColumnValues(new ArrayList<>(source.getColumnValues()));
-		
-		return copy;
-		
+		return SerializationUtils.clone(source);
 	}
 	
-	
-	public static NuclrResource build(final Path path) {
+	public static NuclrResource build(NuclrResource parent, final Path path) {
 
 		final var r = new NuclrResource();
 
-		final var metadata = r.getMetadata();
-
-		// Path
-		metadata.put(KeyPath, path);
-
+		r.setPath(path);
+		r.setParentResource(parent);
 		
 		try {
 			r.setName(path.getFileName().toString());
@@ -125,10 +98,6 @@ final class FileNuclrResource {
 		} catch (IOException e) {
 			return false;
 		}
-	}
-
-	private static boolean hasParent(Path path) {
-		return path != null && path.getParent() != null;
 	}
 
 	private static boolean isLink(Path path) {
