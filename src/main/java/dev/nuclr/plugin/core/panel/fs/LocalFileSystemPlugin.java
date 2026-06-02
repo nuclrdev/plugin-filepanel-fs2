@@ -100,15 +100,15 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	public LocalFileSystemPlugin() {
 
-		var defaultPath = getDefaultDrivePath();
+		var rootPath = getRootPath();
 
-		log.info("Default drive path: " + defaultPath);
+		log.info("Default drive path: " + rootPath);
 		
-		this.currentFolder = Helper.build(null, defaultPath);
+		this.currentFolder = Helper.build(rootPath);
 
 	}
 
-	private Path getDefaultDrivePath() {
+	private Path getRootPath() {
 		
 		if (SystemUtils.IS_OS_WINDOWS) {
 			// Windows: return a virtual "This PC" root — use null-root path
@@ -169,7 +169,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		FileSystems.getDefault().getRootDirectories().forEach(p -> {
 			var res = new MenuItem();
-			res.setPath(Helper.build(null, p));
+			res.setPath(Helper.build(p));
 			res.setText(p.toString());
 			res.setUuid(id() + ":" + p.toString());
 			resources.add(res);
@@ -182,7 +182,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	@Override
-	public NuclrResourceData openResource(NuclrResource parentFolder, NuclrResource folder, AtomicBoolean cancelled) {
+	public NuclrResourceData openResource(NuclrResource folder, AtomicBoolean cancelled) {
 
 		if (cancelled != null && cancelled.get()) {
 			return null;
@@ -204,12 +204,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		entries.setColumnNames(ColumnNames);
 
 		// Add the parent directory entry if not at the root level
-		if (parentFolder != null) {
-
-			var parentCopy = Helper.build(parentFolder, path.getParent());
-			parentCopy.setParent(true);
+		if (folder.getPath().getParent() != null) {
+			var parentCopy = Helper.build(path.getParent());
 			parentCopy.setName("..");
-			parentCopy.getColumnValues().set(0, "..");
+			parentCopy.getColumnValues().set(0, parentCopy.getName());
 			entries.getEntries().add(parentCopy);
 		}
 
@@ -218,7 +216,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				if (cancelled != null && cancelled.get()) {
 					return;
 				}
-				entries.getEntries().add(Helper.build(folder, p));
+				entries.getEntries().add(Helper.build(p));
 			});
 		} catch (IOException e) {
 			log.error("Failed to list directory: " + path, e);
@@ -411,7 +409,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				for (var child : stream) {
 					if (isCancelled(cancelled))
 						return;
-					visitor.accept(Helper.build(folder, child));
+					visitor.accept(Helper.build(child));
 				}
 			} catch (IOException e) {
 				log.error("Error listing {}: {}", folder.getFullPath(), e.getMessage(), e);
@@ -432,7 +430,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 							if (isCancelled(cancelled))
 								return FileVisitResult.TERMINATE;
 							if (!dir.equals(root)) {
-								visitor.accept(Helper.build(folder, dir));
+								visitor.accept(Helper.build(dir));
 							}
 							return FileVisitResult.CONTINUE;
 						}
@@ -441,7 +439,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 						public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
 							if (isCancelled(cancelled))
 								return FileVisitResult.TERMINATE;
-							visitor.accept(Helper.build(folder, file));
+							visitor.accept(Helper.build(file));
 							return FileVisitResult.CONTINUE;
 						}
 

@@ -39,9 +39,9 @@ final class Helper {
 		return SerializationUtils.clone(source);
 	}
 	
-	public static NuclrResource build(NuclrResource parent, final Path path) {
+	public static NuclrResource build(final Path path) {
 
-		final var r = new NuclrResource(path, parent);
+		final var r = new NuclrResource(path);
 		
 		try {
 			r.setName(path.getFileName().toString());
