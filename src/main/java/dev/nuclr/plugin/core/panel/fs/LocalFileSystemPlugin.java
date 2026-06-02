@@ -103,6 +103,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		var defaultPath = getDefaultDrivePath();
 
 		log.info("Default drive path: " + defaultPath);
+		
 		this.currentFolder = Helper.build(null, defaultPath);
 
 	}
@@ -208,7 +209,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			var parentCopy = Helper.build(parentFolder, path.getParent());
 			parentCopy.setParent(true);
 			parentCopy.setName("..");
-			parentCopy.setFullPath("..");
 			parentCopy.getColumnValues().set(0, "..");
 			entries.getEntries().add(parentCopy);
 		}

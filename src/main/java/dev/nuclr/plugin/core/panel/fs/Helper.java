@@ -41,10 +41,7 @@ final class Helper {
 	
 	public static NuclrResource build(NuclrResource parent, final Path path) {
 
-		final var r = new NuclrResource();
-
-		r.setPath(path);
-		r.setParentResource(parent);
+		final var r = new NuclrResource(path, parent);
 		
 		try {
 			r.setName(path.getFileName().toString());
