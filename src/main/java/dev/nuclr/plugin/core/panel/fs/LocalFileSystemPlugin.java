@@ -24,6 +24,7 @@ import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -233,7 +234,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		items.add(menu("Edit", "F4", "edit"));
 		items.add(menu("Copy", "F5", "copy"));
 		items.add(menu(isDirectory ? "Move" : "Rename/Move", "F6", "move"));
-		items.add(menu("Make Folder", "F7", "makeFolder"));
+		items.add(menu("Make Folder", "F7", "filepanel.makeFolder"));
 		items.add(menu("Delete", "F8", "delete"));
 		items.add(menu("Quit", "F10", "quit"));
 		items.add(menu("Plugins", "F11", "plugins"));
@@ -388,7 +389,21 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public void handleMessage(Object source, String type, Map<String, Object> eventData, NuclrPluginCallback callback) {
-
+		if (!"filepanel.makeFolder".equals(type) || eventData == null) {
+			return;
+		}
+		if (!focused || currentFolder == null) {
+			return;
+		}
+		var createdPath = MakeNewFolderService.makeNewFolder(currentFolder, callback);
+		if (createdPath == null) {
+			return;
+		}
+		try {
+			eventData.put("createdResource", Helper.build(context, createdPath));
+		} catch (UnsupportedOperationException ignored) {
+			log.debug("Make-folder event payload is immutable; created resource will not be selected.");
+		}
 	}
 
 	@Override
