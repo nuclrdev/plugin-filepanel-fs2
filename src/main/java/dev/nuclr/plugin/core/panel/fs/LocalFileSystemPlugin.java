@@ -193,7 +193,20 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		Path path = folder.getPath();
 
-		if (path == null || !Files.isDirectory(path)) {
+		if (path == null) {
+			return null;
+		}
+
+		// Follow Windows junctions / symlinks (e.g. C:\Documents and Settings ->
+		// C:\Users) to their real target so the contents can be listed and the panel
+		// reflects the resolved location.
+		var effective = resolveReparseTarget(path);
+		if (!effective.equals(path)) {
+			folder = Helper.build(context, effective);
+			path = effective;
+		}
+
+		if (!Files.isDirectory(path)) {
 			return null;
 		}
 
@@ -472,12 +485,56 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	@Override
 	public boolean supports(Path path) {
 
-		if (path != null) {
-			return path != null && Files.exists(path) && Files.isDirectory(path) && Files.isReadable(path);
+		if (path == null) {
+			return false;
 		}
 
-		return false;
+		var effective = resolveReparseTarget(path);
 
+		return Files.exists(effective) && Files.isDirectory(effective) && Files.isReadable(effective);
+
+	}
+
+	/**
+	 * Resolve a Windows junction / symbolic link to its real target.
+	 *
+	 * <p>Some system reparse points — notably {@code C:\Documents and Settings} —
+	 * carry a deny ACL on the link itself, so they cannot be enumerated even though
+	 * their target ({@code C:\Users}) is perfectly readable. Following the link lets
+	 * us browse the target instead of refusing the entry, the way Far Commander does.
+	 *
+	 * @return the resolved real path when {@code path} is a reparse point that points
+	 *         to a readable directory; otherwise {@code path} unchanged.
+	 */
+	private static Path resolveReparseTarget(Path path) {
+
+		if (path == null) {
+			return path;
+		}
+
+		// Fast path: a directly-browsable directory needs no resolution. This also
+		// leaves ordinary readable symlinks untouched, so only the broken deny-ACL
+		// reparse points are redirected.
+		if (Files.isDirectory(path) && Files.isReadable(path)) {
+			return path;
+		}
+
+		try {
+			// toRealPath follows Windows junctions and symlinks to the real location,
+			// even when the reparse point itself carries a deny ACL (the JDK's
+			// readSymbolicLink throws NotLinkException for mount-point junctions, so it
+			// cannot be used here). For a non-reparse path it just returns the same
+			// canonical location, so the !equals guard keeps such paths untouched.
+			var real = path.toRealPath();
+
+			if (!real.equals(path) && Files.isDirectory(real) && Files.isReadable(real)) {
+				return real;
+			}
+		} catch (IOException e) {
+			// Unresolvable or unreadable — browse the original path.
+		}
+
+		return path;
 	}
 
 	@Override
