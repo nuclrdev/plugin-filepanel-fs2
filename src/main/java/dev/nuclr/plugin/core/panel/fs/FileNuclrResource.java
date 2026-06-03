@@ -1,6 +1,6 @@
 /*
 
-	Copyright 2026 Sergio, Nuclr (https://nuclr.dev)
+	Copyright 2026 Sergio, Nuclr (https://nuclthis.dev)
 	
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
@@ -18,51 +18,87 @@
 package dev.nuclr.plugin.core.panel.fs;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+import java.util.List;
+import java.util.Locale;
 
-import org.apache.commons.lang3.SerializationUtils;
+import org.apache.commons.io.FileUtils;
 
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-final class Helper {
+public final class FileNuclrResource extends NuclrResource {
 
-	public static NuclrResource copy(final NuclrResource source) {
-		return SerializationUtils.clone(source);
-	}
+	public static final List<String> ColumnNames = List.of("Name", "Size", "Date", "Time");
 
-	public static FileNuclrResource build(NuclrPluginContext ctx, final Path path) {
+	public FileNuclrResource(NuclrPluginContext ctx, Path path) {
 
-		final var r = new FileNuclrResource(ctx, path);
+		super(path);
 
 		try {
-			r.setName(path.getFileName().toString());
+			this.setName(path.getFileName().toString());
 		} catch (Exception e) {
-			r.setName(path.toString());
+			this.setName(path.toString());
 		}
+		
+		this.setFullPath(getFullPath(path));
+		this.setUuid(path.toAbsolutePath().toString());
+		this.setFolder(Files.isDirectory(path));
+		this.setLength(getLength(path));
+		this.setSystem(isSystem(path));
+		this.setLink(isLink(path));
+		this.setHidden(isHidden(path));
+		this.setLastModifiedDateTime(getLastModifiedDateTime(path));
+		this.setCreatedDateTime(getCreateDateTime(path));
+		this.setLastAccessDateTime(getLastAccessDateTime(path));
 
-		r.setFullPath(getFullPath(path));
-		r.setUuid(path.toAbsolutePath().toString());
-		r.setFolder(Files.isDirectory(path));
-		r.setLength(getLength(path));
-		r.setSystem(isSystem(path));
-		r.setLink(isLink(path));
-		r.setHidden(isHidden(path));
-		r.setLastModifiedDateTime(getLastModifiedDateTime(path));
-		r.setCreatedDateTime(getCreateDateTime(path));
-		r.setLastAccessDateTime(getLastAccessDateTime(path));
+		this.getMetadata().put("Name", this.getName());
+		this.getMetadata().put("Size", isFolder() ? "Folder" : FileUtils.byteCountToDisplaySize(this.getLength()));
+		this.getMetadata().put("Date", getDate(ctx.getLocale(), this.getLastModifiedDateTime()));
+		this.getMetadata().put("Time", getTime(ctx.getLocale(), this.getLastAccessDateTime()));
 
-		return r;
+	}
+	
+	public void setName(String name) {
+		this.name = name;
+		this.getMetadata().put("Name", name);
+	}
 
+	/** Get time String in a localised format */
+	private String getTime(Locale locale, LocalDateTime date) {
+			    return date
+			.toLocalTime()
+			.format(DateTimeFormatter
+				.ofLocalizedTime(FormatStyle.SHORT)
+				.withLocale(locale));
+	}
+
+	/** Get date String in a localised format */ 
+	private String getDate(Locale locale, LocalDateTime date) {
+	    return date
+            .toLocalDate()
+            .format(DateTimeFormatter
+                .ofLocalizedDate(FormatStyle.SHORT)
+                .withLocale(locale));
+	}
+	
+	
+	
+	public InputStream openInputStream(OpenOption... options) throws Exception {
+		return Files.newInputStream(path, options);
 	}
 
 	private static boolean isSystem(Path path) {
@@ -91,6 +127,10 @@ final class Helper {
 		} catch (IOException e) {
 			return false;
 		}
+	}
+
+	private static boolean hasParent(Path path) {
+		return path != null && path.getParent() != null;
 	}
 
 	private static boolean isLink(Path path) {

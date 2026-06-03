@@ -45,8 +45,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	private static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
 	private static final String PluginDocUrl = PluginPageUrl;
 
-	static final List<String> ColumnNames = List.of("Name", "Size", "Date", "Time");
-
 	private NuclrPluginContext context;
 
 	private boolean focused = false;
@@ -100,16 +98,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	public LocalFileSystemPlugin() {
 
-		var rootPath = getRootPath();
-
-		log.info("Default drive path: " + rootPath);
-		
-		this.currentFolder = Helper.build(rootPath);
-
 	}
 
 	private Path getRootPath() {
-		
+
 		if (SystemUtils.IS_OS_WINDOWS) {
 			// Windows: return a virtual "This PC" root — use null-root path
 			// FileSystems.getDefault().getRootDirectories() gives C:\, D:\, etc.
@@ -128,21 +120,27 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public List<NuclrMenuResource> menuItems(NuclrResource source) {
 
 		var items = new ArrayList<NuclrMenuResource>();
-		
+
 		boolean isDirectory = source != null && source.getPath() != null && Files.isDirectory(source.getPath());
-		
+
 		addDefaultMenuItems(items, isDirectory);
 		addAltMenuItems(items);
 		addCtrlMenuItems(items);
 		addShiftMenuItems(items, isDirectory);
-		
+
 		return items;
-		
+
 	}
 
 	@Override
 	public void preinit(NuclrPluginContext context) {
+
 		this.context = context;
+
+		var rootPath = getRootPath();
+		log.info("Default drive path: " + rootPath);
+		this.currentFolder = Helper.build(context, rootPath);
+
 		log.info("Local filesystem panel plugin loaded");
 	}
 
@@ -169,7 +167,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		FileSystems.getDefault().getRootDirectories().forEach(p -> {
 			var res = new MenuItem();
-			res.setPath(Helper.build(p));
+			res.setPath(Helper.build(context, p));
 			res.setText(p.toString());
 			res.setUuid(id() + ":" + p.toString());
 			resources.add(res);
@@ -191,7 +189,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		if (folder == null) {
 			return null;
 		}
-		
+
 		Path path = folder.getPath();
 
 		if (path == null || !Files.isDirectory(path)) {
@@ -201,13 +199,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		this.currentFolder = folder;
 
 		var entries = new NuclrResourceData();
-		entries.setColumnNames(ColumnNames);
+		entries.setColumnNames(FileNuclrResource.ColumnNames);
 
 		// Add the parent directory entry if not at the root level
 		if (folder.getPath().getParent() != null) {
-			var parentCopy = Helper.build(path.getParent());
+			var parentCopy = Helper.build(context, path.getParent());
 			parentCopy.setName("..");
-			parentCopy.getColumnValues().set(0, parentCopy.getName());
 			entries.getEntries().add(parentCopy);
 		}
 
@@ -216,7 +213,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				if (cancelled != null && cancelled.get()) {
 					return;
 				}
-				entries.getEntries().add(Helper.build(p));
+				entries.getEntries().add(Helper.build(context, p));
 			});
 		} catch (IOException e) {
 			log.error("Failed to list directory: " + path, e);
@@ -325,7 +322,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public String getCurrentLocationDisplayText() {
 		return String.valueOf(getCurrentFolderPath());
 	}
-	
+
 	private Path getCurrentFolderPath() {
 		return this.currentFolder != null ? this.currentFolder.getPath() : null;
 	}
@@ -372,7 +369,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				// Fall back to the resource payload below.
 			}
 		}
-		
+
 		return 0L;
 	}
 
@@ -395,10 +392,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	@Override
-	public void walkDescendants(
-			NuclrResource folder, 
-			Consumer<NuclrResource> visitor, 
-			AtomicBoolean cancelled, 
+	public void walkDescendants(NuclrResource folder, Consumer<NuclrResource> visitor, AtomicBoolean cancelled,
 			boolean recursive) throws IOException {
 
 		Path root = folder.getPath();
@@ -409,7 +403,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				for (var child : stream) {
 					if (isCancelled(cancelled))
 						return;
-					visitor.accept(Helper.build(child));
+					visitor.accept(Helper.build(context, child));
 				}
 			} catch (IOException e) {
 				log.error("Error listing {}: {}", folder.getFullPath(), e.getMessage(), e);
@@ -420,17 +414,14 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		try {
 
-			Files.walkFileTree(
-					root, 
-					EnumSet.noneOf(FileVisitOption.class), 
-					Integer.MAX_VALUE,
+			Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE,
 					new SimpleFileVisitor<>() {
 						@Override
 						public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
 							if (isCancelled(cancelled))
 								return FileVisitResult.TERMINATE;
 							if (!dir.equals(root)) {
-								visitor.accept(Helper.build(dir));
+								visitor.accept(Helper.build(context, dir));
 							}
 							return FileVisitResult.CONTINUE;
 						}
@@ -439,7 +430,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 						public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
 							if (isCancelled(cancelled))
 								return FileVisitResult.TERMINATE;
-							visitor.accept(Helper.build(file));
+							visitor.accept(Helper.build(context, file));
 							return FileVisitResult.CONTINUE;
 						}
 
@@ -459,17 +450,19 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		return (cancelled != null && cancelled.get()) || Thread.currentThread().isInterrupted();
 	}
 
-	/** This plugin supports resources that have a File path metadata which exists and is a directory. */
+	/**
+	 * This plugin supports resources that have a File path metadata which exists
+	 * and is a directory.
+	 */
 	@Override
-	public boolean supports(NuclrResource resource) {
-
-		Path path = resource.getPath();
+	public boolean supports(Path path) {
 
 		if (path != null) {
 			return path != null && Files.exists(path) && Files.isDirectory(path) && Files.isReadable(path);
 		}
 
 		return false;
+
 	}
 
 }
