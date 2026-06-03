@@ -218,7 +218,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		} catch (IOException e) {
 			log.error("Failed to list directory: " + path, e);
 		}
-
+		
 		return entries;
 
 	}
@@ -464,5 +464,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		return false;
 
 	}
+
+	@Override
+	public String getWindowTitle() {
+		return this.currentFolder != null ? this.currentFolder.getPath().toAbsolutePath().toString() : null;
+	}
+	
+	
 
 }
