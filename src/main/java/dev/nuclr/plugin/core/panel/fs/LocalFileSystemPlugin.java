@@ -24,6 +24,7 @@ import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -402,7 +403,17 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public void handleMessage(Object source, String type, Map<String, Object> eventData, NuclrPluginCallback callback) {
-		if (!"filepanel.makeFolder".equals(type) || eventData == null) {
+
+		if (eventData == null) {
+			return;
+		}
+
+		if ("filepanel.delete".equals(type)) {
+			handleDelete(eventData, callback);
+			return;
+		}
+
+		if (!"filepanel.makeFolder".equals(type)) {
 			return;
 		}
 		if (!focused || currentFolder == null) {
@@ -417,6 +428,30 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		} catch (UnsupportedOperationException ignored) {
 			log.debug("Make-folder event payload is immutable; created resource will not be selected.");
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void handleDelete(Map<String, Object> eventData, NuclrPluginCallback callback) {
+
+		// The event is broadcast to every subscribed panel; only the focused one acts,
+		// otherwise both panels would each show a confirmation popup.
+		if (!focused) {
+			return;
+		}
+
+		if (!(eventData.get("sources") instanceof List<?> list) || list.isEmpty()) {
+			return;
+		}
+
+		List<NuclrResource> sources = (List<NuclrResource>) list;
+		boolean permanent = Boolean.TRUE.equals(eventData.get("permanent"));
+
+		// Plugin-rendered confirmation listing the full paths to be deleted.
+		if (!DeleteDialogs.confirmDelete(sources)) {
+			return;
+		}
+
+		DeleteService.delete(sources, permanent, callback, (item, e) -> DeleteDialogs.error(item.getName(), e));
 	}
 
 	@Override
