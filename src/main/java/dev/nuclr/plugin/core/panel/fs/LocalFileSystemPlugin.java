@@ -1,5 +1,6 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import java.awt.Event;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
@@ -19,6 +20,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
 
 import dev.nuclr.platform.events.NuclrEventListener;
+import dev.nuclr.platform.plugin.BaseNuclrPlugin;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin;
 import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
@@ -240,43 +242,25 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public boolean isMessageSupported(String type) {
-		return true;
+		return false;
 	}
 
 	private static void addDefaultMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
-		items.add(menu("View", "F3", "view"));
-		items.add(menu("Edit", "F4", "edit"));
-		items.add(menu("Copy", "F5", "copy"));
-		items.add(menu(isDirectory ? "Move" : "Rename/Move", "F6", "move"));
+		items.add(menu("View", "F3", "filepanel.view"));
+		items.add(menu("Edit", "F4", "filepanel.edit"));
+		items.add(menu("Copy", "F5", "filepanel.copy"));
+		items.add(menu(isDirectory ? "Move" : "Rename/Move", "F6", "filepanel.move"));
 		items.add(menu("Make Folder", "F7", "filepanel.makeFolder"));
-		items.add(menu("Delete", "F8", "delete"));
-		items.add(menu("Quit", "F10", "quit"));
-		items.add(menu("Plugins", "F11", "plugins"));
-		items.add(menu("Screen", "F12", "screen"));
+		items.add(menu("Delete", "F8", "filepanel.delete"));
 	}
 
 	private static void addAltMenuItems(List<NuclrMenuResource> items) {
-		items.add(menu("Left Panel", "Alt+F1", "left"));
-		items.add(menu("Right Panel", "Alt+F2", "right"));
 		items.add(menu("Find", "Alt+F7", "find"));
-		items.add(menu("History", "Alt+F8", "history"));
-		items.add(menu("Fullscreen", "Alt+F9", "fullscreen"));
 		items.add(menu("Tree", "Alt+F10", "tree"));
-		items.add(menu("View History", "Alt+F11", "viewHistory"));
 		items.add(menu("Folder History", "Alt+F12", "folderHistory"));
 	}
 
 	private static void addCtrlMenuItems(List<NuclrMenuResource> items) {
-		items.add(menu("Hide Left", "Ctrl+F1", "hideLeft"));
-		items.add(menu("Hide Right", "Ctrl+F2", "hideRight"));
-		items.add(menu("Sort by name", "Ctrl+F3", "sortByName"));
-		items.add(menu("Sort by extension", "Ctrl+F4", "sortByExtension"));
-		items.add(menu("Sort by modified", "Ctrl+F5", "sortByModifiedDate"));
-		items.add(menu("Sort by size", "Ctrl+F6", "sortBySize"));
-		items.add(menu("Unsort", "Ctrl+F7", "unsort"));
-		items.add(menu("Sort by create", "Ctrl+F8", "sortByCreateDate"));
-		items.add(menu("Sort by access", "Ctrl+F9", "sortByAccessTime"));
-		items.add(menu("Sort menu", "Ctrl+F12", "sortMenu"));
 	}
 
 	private static void addShiftMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
@@ -404,54 +388,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	@Override
 	public void handleMessage(Object source, String type, Map<String, Object> eventData, NuclrPluginCallback callback) {
 
-		if (eventData == null) {
-			return;
-		}
-
-		if ("filepanel.delete".equals(type)) {
-			handleDelete(eventData, callback);
-			return;
-		}
-
-		if (!"filepanel.makeFolder".equals(type)) {
-			return;
-		}
-		if (!focused || currentFolder == null) {
-			return;
-		}
-		var createdPath = MakeNewFolderService.makeNewFolder(currentFolder, callback);
-		if (createdPath == null) {
-			return;
-		}
-		try {
-			eventData.put("createdResource", Helper.build(context, createdPath));
-		} catch (UnsupportedOperationException ignored) {
-			log.debug("Make-folder event payload is immutable; created resource will not be selected.");
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	private void handleDelete(Map<String, Object> eventData, NuclrPluginCallback callback) {
-
-		// The event is broadcast to every subscribed panel; only the focused one acts,
-		// otherwise both panels would each show a confirmation popup.
-		if (!focused) {
-			return;
-		}
-
-		if (!(eventData.get("sources") instanceof List<?> list) || list.isEmpty()) {
-			return;
-		}
-
-		List<NuclrResource> sources = (List<NuclrResource>) list;
-		boolean permanent = Boolean.TRUE.equals(eventData.get("permanent"));
-
-		// Plugin-rendered confirmation listing the full paths to be deleted.
-		if (!DeleteDialogs.confirmDelete(sources)) {
-			return;
-		}
-
-		DeleteService.delete(sources, permanent, callback, (item, e) -> DeleteDialogs.error(item.getName(), e));
 	}
 
 	@Override
@@ -576,7 +512,79 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public String getWindowTitle() {
 		return this.currentFolder != null ? this.currentFolder.getPath().toAbsolutePath().toString() : null;
 	}
+
+	/** Helper to determine the list of resources to act on for a file panel event, based on the current selection and focus state. */
+	private List<NuclrResource> getSelectedResourcesForEvent(
+		List<NuclrResource> selectedResources,
+		NuclrResource focusedResource) {
+		
+		var list = new ArrayList<NuclrResource>();
+		
+		// If there are selected resources, use them. Otherwise, if there's a focused resource, use it as a single-item list.
+		if (selectedResources != null && !selectedResources.isEmpty()) {
+			list.addAll(selectedResources);
+		} else if (focusedResource != null) {
+			list.add(focusedResource);
+		}
+		
+		return list;
+		
+	}
+
+	@Override
+	public void act(
+			BaseNuclrPlugin other, 
+			String actionType, 
+			List<NuclrResource> selectedResources,
+			NuclrResource focusedResource,
+			Map<String, Object> data, 
+			NuclrPluginCallback callback) {
+		
+		if ("filepanel.delete".equals(actionType) || "filepanel.deletePermanent".equals(actionType)) {
+			handleDelete(getSelectedResourcesForEvent(selectedResources, focusedResource), "filepanel.deletePermanent".equals(actionType), callback);
+			return;
+		}
+
+		if ("filepanel.makeFolder".equals(actionType)) {
+			handleMakeNewFolder(data, callback);
+			return;
+		}
+		
+	}
+
 	
+	/** 
+	 * 	Handle the "Make Folder" action by prompting the user for a new folder name, creating the folder in the current directory, 
+	 *  and adding the created resource to the event data for selection. 
+	 * */
+	private void handleMakeNewFolder(Map<String, Object> data, NuclrPluginCallback callback) {
+
+		var createdPath = MakeNewFolderService.makeNewFolder(currentFolder, callback);
+		if (createdPath == null) {
+			return;
+		}
+		try {
+			data.put("createdResource", Helper.build(context, createdPath));
+		} catch (UnsupportedOperationException ignored) {
+			log.debug("Make-folder event payload is immutable; created resource will not be selected.");
+		}
+
+		
+	}
+
+	@SuppressWarnings("unchecked")
+	private void handleDelete(List<NuclrResource> sources, boolean permanent, NuclrPluginCallback callback) {
+
+		// Plugin-rendered confirmation listing the full paths to be deleted.
+		if (!DeleteDialogs.confirmDelete(sources)) {
+			return;
+		}
+
+		DeleteService.delete(sources, permanent, callback, (item, e) -> DeleteDialogs.error(item.getName(), e));
+		
+	}
+
+
 	
 
 }
