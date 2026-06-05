@@ -541,7 +541,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			NuclrPluginCallback callback) {
 		
 		if ("filepanel.delete".equals(actionType) || "filepanel.deletePermanent".equals(actionType)) {
-			handleDelete(getSelectedResourcesForEvent(selectedResources, focusedResource), "filepanel.deletePermanent".equals(actionType), callback);
+			handleDelete(data, getSelectedResourcesForEvent(selectedResources, focusedResource), "filepanel.deletePermanent".equals(actionType), callback);
 			return;
 		}
 
@@ -564,7 +564,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 		try {
-			data.put("createdResource", Helper.build(context, createdPath));
+			data.put("result.refresh", true);
+			data.put("result.refresh.selected.resource", Helper.build(context, createdPath));
 		} catch (UnsupportedOperationException ignored) {
 			log.debug("Make-folder event payload is immutable; created resource will not be selected.");
 		}
@@ -573,7 +574,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	@SuppressWarnings("unchecked")
-	private void handleDelete(List<NuclrResource> sources, boolean permanent, NuclrPluginCallback callback) {
+	private void handleDelete(Map<String, Object> data, List<NuclrResource> sources, boolean permanent, NuclrPluginCallback callback) {
 
 		// Plugin-rendered confirmation listing the full paths to be deleted.
 		if (!DeleteDialogs.confirmDelete(sources)) {
@@ -581,6 +582,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 
 		DeleteService.delete(sources, permanent, callback, (item, e) -> DeleteDialogs.error(item.getName(), e));
+		
+		data.put("result.refresh", true);
 		
 	}
 
