@@ -66,7 +66,18 @@ public final class FileNuclrResource extends NuclrResource {
 		this.setLastAccessDateTime(getLastAccessDateTime(path));
 
 		this.getMetadata().put("Name", this.getName());
-		this.getMetadata().put("Size", isFolder() ? "Folder" : FileUtils.byteCountToDisplaySize(this.getLength()));
+		
+		if (isFolder()) {
+			if (getName().equals("..")) {
+				this.getMetadata().put("Size", "Up");
+			} else {
+				this.getMetadata().put("Size", "Folder");
+			}
+			
+		} else {
+			this.getMetadata().put("Size", FileUtils.byteCountToDisplaySize(this.getLength()));
+		}
+		
 		this.getMetadata().put("Date", getDate(ctx.getLocale(), this.getLastModifiedDateTime()));
 		this.getMetadata().put("Time", getTime(ctx.getLocale(), this.getLastAccessDateTime()));
 

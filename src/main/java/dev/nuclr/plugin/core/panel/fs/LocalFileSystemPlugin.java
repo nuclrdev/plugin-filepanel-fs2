@@ -22,6 +22,7 @@ import org.apache.commons.lang3.SystemUtils;
 import dev.nuclr.platform.events.NuclrEventListener;
 import dev.nuclr.platform.plugin.BaseNuclrPlugin;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin;
+import dev.nuclr.platform.plugin.NuclrContextMenuItem;
 import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
@@ -550,9 +551,33 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 		
+		if ("filepanel.path.open.in.explorer".equals(actionType)) {
+			handleRevealInFileManager(data, getSelectedResourcesForEvent(selectedResources, focusedResource), callback);
+			return;
+		}
+		
 	}
 
 	
+	private void handleRevealInFileManager(Map<String, Object> data, List<NuclrResource> selectedResourcesForEvent,
+			NuclrPluginCallback callback) {
+		
+		
+		if (false == selectedResourcesForEvent.isEmpty()) {
+			// If there are selected resources, reveal the first one.
+			var resource = selectedResourcesForEvent.get(0);
+			if (resource.getPath() != null) {
+				try {
+					Helper.revealInFileManager(resource.getPath());
+				} catch (IOException e) {
+					log.error("Failed to reveal {} in file manager: {}", resource.getFullPath(), e.getMessage(), e);
+				}
+				return;
+			}
+		}
+		
+	}
+
 	/** 
 	 * 	Handle the "Make Folder" action by prompting the user for a new folder name, creating the folder in the current directory, 
 	 *  and adding the created resource to the event data for selection. 
@@ -587,6 +612,18 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 	}
 
+	@Override
+	public List<NuclrContextMenuItem> contextMenuItems(NuclrResource focusedResource, List<NuclrResource> selectedResources) {
+
+		return List.of(
+			NuclrContextMenuItem.builder().label("Open").actionType("filepanel.path.opened").build(),
+			NuclrContextMenuItem.builder().label("Reveal in File Manager").actionType("filepanel.path.open.in.explorer").build(),
+			NuclrContextMenuItem.builder().separator(true).build(),
+			NuclrContextMenuItem.builder().label("Delete").actionType("filepanel.delete").build()
+		);
+	}
+
+	
 
 	
 
