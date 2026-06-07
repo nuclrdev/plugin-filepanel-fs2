@@ -455,8 +455,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	 * and is a directory.
 	 */
 	@Override
-	public boolean supports(Path path) {
+	public boolean supports(NuclrResource resource) {
 
+		var path = resource.getPath();
+		
 		if (path == null) {
 			return false;
 		}
