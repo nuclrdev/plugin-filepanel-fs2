@@ -27,6 +27,7 @@ import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
 import lombok.extern.slf4j.Slf4j;
@@ -464,6 +465,13 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 
 		var effective = resolveReparseTarget(path);
+		
+		// If a director and not readable, show a warning message, don't open the folder
+		if (Files.isDirectory(effective) && false == Files.isReadable(effective)) {
+			log.warn("Directory {} is not readable", effective);
+			Alerts.showError("Directory is not readable", "The directory " + effective.toAbsolutePath() + " cannot be opened because it is not readable. Please check the permissions and try again.");
+			return false;
+		}
 
 		return Files.exists(effective) && Files.isDirectory(effective) && Files.isReadable(effective);
 

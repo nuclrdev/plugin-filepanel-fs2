@@ -37,17 +37,17 @@ public class MakeNewFolderService {
 	public static Path makeNewFolder(NuclrResource currentFolder, NuclrPluginCallback callback) {
 
 		if (currentFolder == null || currentFolder.getPath() == null) {
-			showError("No folder is open.");
+			Alerts.showError(DialogTitle, "No folder is open.");
 			return null;
 		}
 
 		Path parent = currentFolder.getPath();
 		if (!Files.isDirectory(parent)) {
-			showError("The current item is not a folder.");
+			Alerts.showError(DialogTitle, "The current item is not a folder.");
 			return null;
 		}
 		if (!Files.isWritable(parent)) {
-			showError("The current folder is not writable.");
+			Alerts.showError(DialogTitle, "The current folder is not writable.");
 			return null;
 		}
 
@@ -60,14 +60,14 @@ public class MakeNewFolderService {
 			return null;
 		}
 		if (isInvalidSingleFolderName(folderName)) {
-			showError("Folder name cannot contain path separators.");
+			Alerts.showError(DialogTitle, "Folder name cannot contain path separators.");
 			return null;
 		}
 
 		try {
 			Path target = parent.resolve(folderName);
 			if (Files.exists(target)) {
-				showError("A file or folder with that name already exists.");
+				Alerts.showError(DialogTitle, "A file or folder with that name already exists.");
 				return null;
 			}
 			if (callback != null) {
@@ -83,7 +83,7 @@ public class MakeNewFolderService {
 			if (callback != null) {
 				callback.onError(folderName, e instanceof Exception ex ? ex : new IOException(e));
 			}
-			showError(e.getMessage() != null ? e.getMessage() : "Could not create folder.");
+			Alerts.showError(DialogTitle, (e.getMessage() != null ? e.getMessage() : "Could not create folder."));
 			return null;
 		}
 	}
@@ -98,24 +98,9 @@ public class MakeNewFolderService {
 
 	private static String promptFolderName() {
 		final String[] result = new String[1];
-		runOnEdtAndWait(() -> result[0] = JOptionPane.showInputDialog(null, "Folder name:", DialogTitle,
+		Alerts.runOnEdtAndWait(() -> result[0] = JOptionPane.showInputDialog(null, "Folder name:", DialogTitle,
 				JOptionPane.PLAIN_MESSAGE));
 		return result[0];
 	}
 
-	private static void showError(String message) {
-		runOnEdtAndWait(() -> JOptionPane.showMessageDialog(null, message, DialogTitle, JOptionPane.ERROR_MESSAGE));
-	}
-
-	private static void runOnEdtAndWait(Runnable runnable) {
-		if (SwingUtilities.isEventDispatchThread()) {
-			runnable.run();
-			return;
-		}
-		try {
-			SwingUtilities.invokeAndWait(runnable);
-		} catch (Exception e) {
-			log.warn("Failed to run dialog on EDT: {}", e.getMessage(), e);
-		}
-	}
 }

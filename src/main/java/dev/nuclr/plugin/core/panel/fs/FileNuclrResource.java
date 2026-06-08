@@ -1,13 +1,13 @@
 /*
 
-	Copyright 2026 Sergio, Nuclr (https://nuclthis.dev)
-	
+	Copyright 2026 Sergio, Nuclr (https://nuclr.dev)
+
 	Licensed under the Apache License, Version 2.0 (the "License");
 	you may not use this file except in compliance with the License.
 	You may obtain a copy of the License at
-	
+
 	http://www.apache.org/licenses/LICENSE-2.0
-	
+
 	Unless required by applicable law or agreed to in writing, software
 	distributed under the License is distributed on an "AS IS" BASIS,
 	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,6 +25,7 @@ import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.DosFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.SystemUtils;
 
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
@@ -44,6 +46,8 @@ public final class FileNuclrResource extends NuclrResource {
 
 	public static final List<String> ColumnNames = List.of("Name", "Size", "Date", "Time");
 
+	private static final LocalDateTime EPOCH = LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
+
 	public FileNuclrResource(NuclrPluginContext ctx, Path path) {
 
 		super(path);
@@ -53,39 +57,122 @@ public final class FileNuclrResource extends NuclrResource {
 		} catch (Exception e) {
 			this.setName(path.toString());
 		}
-		
-		this.setFullPath(getFullPath(path));
+
+		this.setFullPath(path.toAbsolutePath().normalize().toString());
 		this.setUuid(path.toAbsolutePath().toString());
-		this.setFolder(Files.isDirectory(path));
-		this.setLength(getLength(path));
-		this.setSystem(isSystem(path));
-		this.setLink(isLink(path));
-		this.setHidden(isHidden(path));
-		this.setLastModifiedDateTime(getLastModifiedDateTime(path));
-		this.setCreatedDateTime(getCreateDateTime(path));
-		this.setLastAccessDateTime(getLastAccessDateTime(path));
+
+		// Populate folder/size/link/system/hidden/timestamps from a SINGLE attribute
+		// read (two only for the rare symlink). Reading each attribute via its own
+		// Files.* call costs a separate syscall per attribute — ~12 per entry — which
+		// is what makes large or network-mounted directories crawl.
+		populateAttributes(path);
 
 		this.getMetadata().put("Name", this.getName());
-		
+
 		if (isFolder()) {
 			if (getName().equals("..")) {
 				this.getMetadata().put("Size", "Up");
 			} else {
 				this.getMetadata().put("Size", "Folder");
 			}
-			
 		} else {
 			this.getMetadata().put("Size", FileUtils.byteCountToDisplaySize(this.getLength()));
 		}
-		
+
 		this.getMetadata().put("Date", getDate(ctx.getLocale(), this.getLastModifiedDateTime()));
 		this.getMetadata().put("Time", getTime(ctx.getLocale(), this.getLastAccessDateTime()));
 
 	}
-	
+
 	public void setName(String name) {
 		this.name = name;
 		this.getMetadata().put("Name", name);
+	}
+
+	/**
+	 * Read every displayed attribute in one shot.
+	 *
+	 * <p>
+	 * On Windows {@link DosFileAttributes} extends {@link BasicFileAttributes} and
+	 * additionally yields the system/hidden DOS flags, so a single
+	 * {@code readAttributes} covers folder, size, all three timestamps, system and
+	 * hidden. We read with {@code NOFOLLOW_LINKS} so the symlink itself is
+	 * inspected (no network round-trip to a possibly-dead target, and no risk of a
+	 * cyclic link); only when the entry actually is a symlink do we follow it once
+	 * to learn whether its target is a directory.
+	 */
+	private void populateAttributes(Path path) {
+
+		BasicFileAttributes attrs = null;
+		boolean system = false;
+		boolean hidden = false;
+
+		try {
+			if (SystemUtils.IS_OS_WINDOWS) {
+				DosFileAttributes dos = Files.readAttributes(path, DosFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+				attrs = dos;
+				system = dos.isSystem();
+				hidden = dos.isHidden();
+			} else {
+				attrs = Files.readAttributes(path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+				// POSIX convention: a leading dot marks a hidden entry (Files.isHidden does
+				// exactly this on Unix, but as a separate syscall).
+				String n = getName();
+				hidden = n != null && n.startsWith(".") && !n.equals(".") && !n.equals("..");
+			}
+		} catch (IOException | UnsupportedOperationException e) {
+			// Unreadable entry (permissions, broken mount, …) — surface it with safe
+			// defaults rather than dropping it from the listing.
+			log.debug("Failed to read attributes for {}: {}", path, e.getMessage());
+		}
+
+		if (attrs == null) {
+			setFolder(false);
+			setLength(0L);
+			setLink(false);
+			setSystem(false);
+			setHidden(hidden);
+			setLastModifiedDateTime(EPOCH);
+			setCreatedDateTime(EPOCH);
+			setLastAccessDateTime(EPOCH);
+			return;
+		}
+
+		boolean link = attrs.isSymbolicLink();
+		boolean directory;
+		long length;
+
+		if (link) {
+			// Resolve the target's type once, following the link. A broken or cyclic
+			// link simply fails here and is shown as a (non-directory) link.
+			BasicFileAttributes target = readFollowing(path);
+			directory = target != null && target.isDirectory();
+			length = (target != null && !directory) ? target.size() : 0L;
+		} else {
+			directory = attrs.isDirectory();
+			length = directory ? 0L : attrs.size();
+		}
+
+		setFolder(directory);
+		setLength(length);
+		setLink(link);
+		setSystem(system);
+		setHidden(hidden);
+		setLastModifiedDateTime(toLocal(attrs.lastModifiedTime()));
+		setCreatedDateTime(toLocal(attrs.creationTime()));
+		setLastAccessDateTime(toLocal(attrs.lastAccessTime()));
+	}
+
+	private static BasicFileAttributes readFollowing(Path path) {
+		try {
+			return Files.readAttributes(path, BasicFileAttributes.class);
+		} catch (IOException e) {
+			return null;
+		}
+	}
+
+	private static LocalDateTime toLocal(FileTime time) {
+		return time.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
 	}
 
 	/** Get time String in a localised format */
@@ -97,7 +184,7 @@ public final class FileNuclrResource extends NuclrResource {
 				.withLocale(locale));
 	}
 
-	/** Get date String in a localised format */ 
+	/** Get date String in a localised format */
 	private String getDate(Locale locale, LocalDateTime date) {
 	    return date
             .toLocalDate()
@@ -105,88 +192,9 @@ public final class FileNuclrResource extends NuclrResource {
                 .ofLocalizedDate(FormatStyle.SHORT)
                 .withLocale(locale));
 	}
-	
-	
-	
+
 	public InputStream openInputStream(OpenOption... options) throws Exception {
 		return Files.newInputStream(path, options);
-	}
-
-	private static boolean isSystem(Path path) {
-
-		try {
-
-			if (!Files.exists(path)) {
-				return false;
-			}
-
-			// Windows: check DOS system attribute
-			var dosAttrs = Files.readAttributes(path, DosFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-
-			return dosAttrs.isSystem();
-		} catch (UnsupportedOperationException e) {
-			// Non-Windows file systems usually do not support DOS attributes
-			return false;
-		} catch (IOException e) {
-			return false;
-		}
-	}
-
-	private static boolean isHidden(Path path) {
-		try {
-			return Files.exists(path) && Files.isHidden(path);
-		} catch (IOException e) {
-			return false;
-		}
-	}
-
-	private static boolean hasParent(Path path) {
-		return path != null && path.getParent() != null;
-	}
-
-	private static boolean isLink(Path path) {
-		return path != null && Files.isSymbolicLink(path);
-	}
-
-	private static String getFullPath(Path path) {
-		return path != null ? path.toAbsolutePath().normalize().toString() : "";
-	}
-
-	private static long getLength(Path path) {
-		try {
-			return Files.exists(path) && !Files.isDirectory(path) ? Files.size(path) : 0L;
-		} catch (IOException e) {
-			return 0L;
-		}
-	}
-
-	private static LocalDateTime getLastAccessDateTime(Path path) {
-		try {
-			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
-			return attrs.lastAccessTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-		} catch (IOException e) {
-			log.warn("Failed to read last access time for {}: {}", path, e.getMessage());
-		}
-		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
-	}
-
-	private static LocalDateTime getCreateDateTime(Path path) {
-		try {
-			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
-			return attrs.creationTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-		} catch (IOException e) {
-			log.warn("Failed to read creation time for {}: {}", path, e.getMessage());
-		}
-		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
-	}
-
-	private static LocalDateTime getLastModifiedDateTime(Path path) {
-		try {
-			return Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-		} catch (IOException e) {
-			log.warn("Failed to read last modified time for {}: {}", path, e.getMessage());
-		}
-		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
 	}
 
 }

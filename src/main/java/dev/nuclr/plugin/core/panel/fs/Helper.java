@@ -21,13 +21,7 @@ import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.DosFileAttributes;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -46,103 +40,12 @@ final class Helper {
 	}
 
 	public static FileNuclrResource build(NuclrPluginContext ctx, final Path path) {
-
-		final var r = new FileNuclrResource(ctx, path);
-
-		try {
-			r.setName(path.getFileName().toString());
-		} catch (Exception e) {
-			r.setName(path.toString());
-		}
-
-		r.setFullPath(getFullPath(path));
-		r.setUuid(path.toAbsolutePath().toString());
-		r.setFolder(Files.isDirectory(path));
-		r.setLength(getLength(path));
-		r.setSystem(isSystem(path));
-		r.setLink(isLink(path));
-		r.setHidden(isHidden(path));
-		r.setLastModifiedDateTime(getLastModifiedDateTime(path));
-		r.setCreatedDateTime(getCreateDateTime(path));
-		r.setLastAccessDateTime(getLastAccessDateTime(path));
-
-		return r;
-
+		// All attribute population (name, size, folder, link, system, hidden,
+		// timestamps) lives in the FileNuclrResource constructor as the single source
+		// of truth, reading the filesystem once. Don't re-stat here.
+		return new FileNuclrResource(ctx, path);
 	}
 
-	private static boolean isSystem(Path path) {
-
-		try {
-
-			if (!Files.exists(path)) {
-				return false;
-			}
-
-			// Windows: check DOS system attribute
-			var dosAttrs = Files.readAttributes(path, DosFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
-
-			return dosAttrs.isSystem();
-		} catch (UnsupportedOperationException e) {
-			// Non-Windows file systems usually do not support DOS attributes
-			return false;
-		} catch (IOException e) {
-			return false;
-		}
-	}
-
-	private static boolean isHidden(Path path) {
-		try {
-			return Files.exists(path) && Files.isHidden(path);
-		} catch (IOException e) {
-			return false;
-		}
-	}
-
-	private static boolean isLink(Path path) {
-		return path != null && Files.isSymbolicLink(path);
-	}
-
-	private static String getFullPath(Path path) {
-		return path != null ? path.toAbsolutePath().normalize().toString() : "";
-	}
-
-	private static long getLength(Path path) {
-		try {
-			return Files.exists(path) && !Files.isDirectory(path) ? Files.size(path) : 0L;
-		} catch (IOException e) {
-			return 0L;
-		}
-	}
-
-	private static LocalDateTime getLastAccessDateTime(Path path) {
-		try {
-			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
-			return attrs.lastAccessTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-		} catch (IOException e) {
-			log.warn("Failed to read last access time for {}: {}", path, e.getMessage());
-		}
-		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
-	}
-
-	private static LocalDateTime getCreateDateTime(Path path) {
-		try {
-			var attrs = Files.readAttributes(path, BasicFileAttributes.class);
-			return attrs.creationTime().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-		} catch (IOException e) {
-			log.warn("Failed to read creation time for {}: {}", path, e.getMessage());
-		}
-		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
-	}
-
-	private static LocalDateTime getLastModifiedDateTime(Path path) {
-		try {
-			return Files.getLastModifiedTime(path).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-		} catch (IOException e) {
-			log.warn("Failed to read last modified time for {}: {}", path, e.getMessage());
-		}
-		return LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
-	}
-	
 	/**
 	 * Opens the system file manager and, where supported, selects the given file.
 	 * Falls back to opening the containing folder.
