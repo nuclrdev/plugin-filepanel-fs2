@@ -60,6 +60,7 @@ public final class FileNuclrResource extends NuclrResource {
 
 		this.setFullPath(path.toAbsolutePath().normalize().toString());
 		this.setUuid(path.toAbsolutePath().toString());
+		this.setReadable(Files.isReadable(path));
 
 		// Populate folder/size/link/system/hidden/timestamps from a SINGLE attribute
 		// read (two only for the rare symlink). Reading each attribute via its own
