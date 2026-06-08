@@ -469,7 +469,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		// If a director and not readable, show a warning message, don't open the folder
 		if (Files.isDirectory(effective) && false == Files.isReadable(effective)) {
 			log.warn("Directory {} is not readable", effective);
-			Alerts.showError("Directory is not readable", "The directory " + effective.toAbsolutePath() + " cannot be opened because it is not readable. Please check the permissions and try again.");
+			Alerts.showError("Directory is not readable", "<html>The directory <b>\"" + effective.toAbsolutePath() + "\"</b> cannot be opened because it is not readable.<br/>Please check the permissions and try again.</html>");
 			return false;
 		}
 
