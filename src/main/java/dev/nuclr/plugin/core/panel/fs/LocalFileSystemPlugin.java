@@ -1,4 +1,4 @@
-package dev.nuclr.plugin.core.panel.fs;
+﻿package dev.nuclr.plugin.core.panel.fs;
 
 import java.awt.Event;
 import java.io.IOException;
@@ -43,7 +43,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	public static final String PluginId = "dev.nuclr.plugin.core.panel.fs";
 	private static final String PluginName = "Local Filesystem Panel";
-	private static final String PluginVersion = "1.0.0";
+	private static final String PluginVersion = loadVersion();
 	private static final String PluginDescription = "Provides local filesystem roots (drives/mount points) to the file panel.";
 	private static final String PluginAuthor = "Nuclr Development Team";
 	private static final String PluginLicense = "Apache-2.0";
@@ -70,6 +70,16 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	@Override
 	public String version() {
 		return PluginVersion;
+	}
+	private static String loadVersion() {
+		try (var stream = LocalFileSystemPlugin.class.getResourceAsStream("/plugin.properties")) {
+			if (stream == null) return "unknown";
+			var props = new java.util.Properties();
+			props.load(stream);
+			return props.getProperty("version", "unknown");
+		} catch (java.io.IOException e) {
+			return "unknown";
+		}
 	}
 
 	@Override
@@ -109,7 +119,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	private Path getRootPath() {
 
 		if (SystemUtils.IS_OS_WINDOWS) {
-			// Windows: return a virtual "This PC" root — use null-root path
+			// Windows: return a virtual "This PC" root â€” use null-root path
 			// FileSystems.getDefault().getRootDirectories() gives C:\, D:\, etc.
 			// But "This PC" itself has no real Path equivalent; conventionally use the
 			// first root
@@ -399,7 +409,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		Path root = folder.getPath();
 
 		if (!recursive) {
-			// Single level only — list direct children, no descent.
+			// Single level only â€” list direct children, no descent.
 			try (var stream = Files.newDirectoryStream(root)) {
 				for (var child : stream) {
 					if (isCancelled(cancelled))
@@ -480,7 +490,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	/**
 	 * Resolve a Windows junction / symbolic link to its real target.
 	 *
-	 * <p>Some system reparse points — notably {@code C:\Documents and Settings} —
+	 * <p>Some system reparse points â€” notably {@code C:\Documents and Settings} â€”
 	 * carry a deny ACL on the link itself, so they cannot be enumerated even though
 	 * their target ({@code C:\Users}) is perfectly readable. Following the link lets
 	 * us browse the target instead of refusing the entry, the way Far Commander does.
@@ -513,7 +523,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				return real;
 			}
 		} catch (IOException e) {
-			// Unresolvable or unreadable — browse the original path.
+			// Unresolvable or unreadable â€” browse the original path.
 		}
 
 		return path;
