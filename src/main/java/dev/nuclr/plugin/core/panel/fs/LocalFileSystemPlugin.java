@@ -1,6 +1,5 @@
 package dev.nuclr.plugin.core.panel.fs;
 
-import java.awt.Event;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
@@ -72,16 +71,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		return PluginVersion;
 	}
 
-	private static String loadVersion() {
-		try (var stream = LocalFileSystemPlugin.class.getResourceAsStream("/plugin.properties")) {
-			if (stream == null) return "unknown";
-			var props = new java.util.Properties();
-			props.load(stream);
-			return props.getProperty("version", "unknown");
-		} catch (java.io.IOException e) {
-			return "unknown";
-		}
-	}
 	private static String loadVersion() {
 		try (var stream = LocalFileSystemPlugin.class.getResourceAsStream("/plugin.properties")) {
 			if (stream == null) return "unknown";
