@@ -1,4 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0"
+﻿<project xmlns="http://maven.apache.org/POM/4.0.0"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
@@ -15,13 +15,15 @@
 	<properties>
 		<maven.compiler.source>21</maven.compiler.source>
 		<maven.compiler.target>21</maven.compiler.target>
+		<jarsigner.keystorepath>C:/nuclr/key/nuclr-signing.p12</jarsigner.keystorepath>
+		<jarsigner.keyalias>nuclr</jarsigner.keyalias>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<groupId>dev.nuclr</groupId>
 			<artifactId>platform-sdk</artifactId>
-			<version>2.0.4</version>
+			<version>3.0.1</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -36,9 +38,38 @@
 			<version>2.0.17</version>
 			<scope>provided</scope>
 		</dependency>
+		<!-- Source: https://mvnrepository.com/artifact/commons-io/commons-io -->
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.22.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-lang3</artifactId>
+			<version>3.20.0</version>
+			<scope>provided</scope>
+		</dependency>
 	</dependencies>
-
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>true</filtering>
+				<includes>
+					<include>plugin.properties</include>
+				</includes>
+			</resource>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>false</filtering>
+				<excludes>
+					<exclude>plugin.properties</exclude>
+				</excludes>
+			</resource>
+		</resources>
+
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -152,13 +183,15 @@
 								<script><![CDATA[
 import java.security.*
 
-def storepass = project.properties['jarsigner.storepass']
+def storepass = System.getProperty('jarsigner.storepass') ?: project.properties['jarsigner.storepass']
+def keystorePath = System.getProperty('jarsigner.keystorepath') ?: project.properties['jarsigner.keystorepath']
+def keyAlias = System.getProperty('jarsigner.keyalias') ?: project.properties['jarsigner.keyalias']
 def ks = KeyStore.getInstance("PKCS12")
-new FileInputStream("C:/nuclr/key/nuclr-signing.p12").withStream {
+new FileInputStream(keystorePath).withStream {
 	ks.load(it, storepass.toCharArray())
 }
 
-def key = ks.getKey("nuclr", storepass.toCharArray())
+def key = ks.getKey(keyAlias, storepass.toCharArray())
 def sig = Signature.getInstance("SHA256withRSA")
 sig.initSign(key)
 
