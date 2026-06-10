@@ -1,72 +1,57 @@
-# Nuclr File Panel - Local Filesystem
+# 🗂️ Local Filesystem Panel
 
-Official Nuclr core plugin that provides local filesystem roots (drives/mount points) to the file panel.
+An official [Nuclr Commander](https://nuclr.dev) plugin that adds local drives and mount points as a file panel root. It enumerates roots dynamically from the host OS via `FileSystems.getDefault().getRootDirectories()` — Windows shows `C:\`, `D:\`, etc.; Linux and macOS show `/`.
 
-## Overview
+## ✨ What it does
 
-- Plugin ID: `dev.nuclr.plugin.core.panel.fs`
-- Name: `Local Filesystem Panel`
-- Version: `1.0.0`
-- Plugin class: `dev.nuclr.plugin.core.panel.fs.LocalFileSystemPlugin`
-- License: Apache-2.0
+| Feature | Details |
+|---|---|
+| 🖥️ Drive enumeration | Exposes all root directories reported by the host OS |
+| 📁 File operations | Copy, move, delete, create new folder |
+| 🔗 Symlink resolution | Resolves Windows junctions and symlinks to their readable targets |
+| 📊 Selection summary | Human-readable sizes for single-file and multi-file selections |
+| 📂 Directory walking | Recursive tree walk with cancellation support |
+| 📋 Context menu | Open, Reveal in File Manager, Delete |
+| ⌨️ Go to path | `Ctrl+Shift+G` (Windows) / `Shift+Cmd+G` (macOS) |
 
-This plugin registers a `NuclrPlugin` that exposes one root per entry returned by `FileSystems.getDefault().getRootDirectories()`:
+## 📥 Installation
 
-- Windows: typically `C:\`, `D:\`, etc.
-- Linux/macOS: typically `/`
-
-## Features
-
-- Adds a `local` file panel provider.
-- Displays provider name as `Local Filesystem`.
-- Enumerates roots dynamically from the host OS.
-- Uses priority `0`.
-
-## Requirements
-
-- Java 21
-- Maven 3.9+ (recommended)
-- Nuclr platform SDK dependency:
-  - `dev.nuclr:platform-sdk:3.0.1`
-
-## Build
-
-Build and package:
-
-```bash
-mvn clean package
-```
-
-Create the detached signature too:
-
-```bash
-mvn clean verify -Djarsigner.storepass=<your-password>
-```
-
-## Output Artifacts
-
-After build/verify, artifacts are placed in `target/`:
-
-- `filepanel-fs-1.0.0.jar`
-- `filepanel-fs-1.0.0.zip` (plugin package)
-- `filepanel-fs-1.0.0.zip.sig` (created during `verify`)
-
-Plugin ZIP contents:
-
-- `filepanel-fs-1.0.0.jar`
-- `lib/` runtime dependencies
-
-## Install in Nuclr
-
-1. Build `filepanel-fs-1.0.0.zip`.
-2. Copy the ZIP (and `.sig` if required by your runtime) to your Nuclr plugins directory.
-3. Restart Nuclr.
-
-## Repository Layout
+Copy the signed plugin archive and detached signature into the Nuclr Commander `plugins/` directory:
 
 ```text
-src/main/java/dev/nuclr/plugin/core/panel/fs/LocalFileSystemPlugin.java
-src/main/java/dev/nuclr/plugin/core/panel/fs/FileNuclrResource.java
-src/assembly/plugin.xml
-pom.xml
+filepanel-fs-<version>.zip
+filepanel-fs-<version>.zip.sig
 ```
+
+Nuclr Commander verifies the RSA-SHA256 signature against `nuclr-cert.pem` on load. The plugin becomes available immediately without a restart.
+
+## ⚙️ How it works
+
+The plugin registers as a `FilePanelNuclrPlugin` with priority 0 (the default local-filesystem priority). Each call to `getRoots()` re-enumerates `FileSystems.getDefault().getRootDirectories()` so removable drives and new mounts are picked up without restarting. Delete operations display a confirmation dialog followed by a progress dialog for recursive deletions; `DeleteService` performs the actual tree walk on a virtual thread.
+
+## 🗂️ Source layout
+
+```text
+src/main/java/dev/nuclr/plugin/core/panel/fs/
+├── LocalFileSystemPlugin.java    plugin entry point, file operations
+├── FileNuclrResource.java        NuclrResource wrapper for local files
+├── Helper.java                   symlink resolution, size formatting
+├── DeleteDialogs.java            delete confirmation dialogs
+├── DeleteProgressDialog.java     deletion progress UI
+└── service/
+    ├── Alerts.java
+    ├── DeleteService.java
+    └── MakeNewFolderService.java
+```
+
+## 📚 Dependencies
+
+All dependencies are provided by Nuclr Commander at runtime — nothing extra is bundled in the plugin ZIP.
+
+| Library | Version | Purpose |
+|---|---|---|
+| `dev.nuclr:platform-sdk` | `3.0.1` | Nuclr platform interfaces |
+
+## 📜 License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
