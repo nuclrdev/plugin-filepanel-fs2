@@ -421,7 +421,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public void handleMessage(Object source, String type, Map<String, Object> eventData, NuclrPluginCallback callback) {
-
+		
 	}
 
 	@Override
@@ -583,6 +583,15 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			Map<String, Object> data, 
 			NuclrPluginCallback callback) {
 		
+		if ("filepanel.path.opened".equals(actionType)) {
+ 			log.warn("Open action: " +  getSelectedResourcesForEvent(selectedResources, focusedResource).get(0));
+ 			try {
+				SystemOpen.open(getSelectedResourcesForEvent(selectedResources, focusedResource).get(0).getPath());
+			} catch (IOException e) {
+			}
+			return;
+		}
+		
 		if ("filepanel.delete".equals(actionType) || "filepanel.deletePermanent".equals(actionType)) {
 			handleDelete(data, getSelectedResourcesForEvent(selectedResources, focusedResource), "filepanel.deletePermanent".equals(actionType), callback);
 			return;
@@ -616,17 +625,20 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			NuclrPluginCallback callback) {
 		
 		
+		
 		if (false == selectedResourcesForEvent.isEmpty()) {
-			// If there are selected resources, reveal the first one.
-			var resource = selectedResourcesForEvent.get(0);
-			if (resource.getPath() != null) {
-				try {
-					Helper.revealInFileManager(resource.getPath());
-				} catch (IOException e) {
-					log.error("Failed to reveal {} in file manager: {}", resource.getFullPath(), e.getMessage(), e);
-				}
-				return;
-			}
+			
+			selectedResourcesForEvent.stream()
+				.filter(r -> r.getPath() != null)
+				.forEach(r -> {
+					try {
+						Helper.revealInFileManager(r.getPath());
+					} catch (IOException e) {
+						log.error("Failed to reveal {} in file manager: {}", r.getFullPath(), e.getMessage(), e);
+						Alerts.showError("Failed to reveal in file manager", "<html>Could not reveal <b>\"" + r.getFullPath() + "\"</b> in the file manager.<br/>Error: " + e.getMessage() + "</html>");
+					}
+				});
+			
 		}
 		
 	}
