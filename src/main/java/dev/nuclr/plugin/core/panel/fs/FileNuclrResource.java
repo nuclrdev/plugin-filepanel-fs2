@@ -60,7 +60,14 @@ public final class FileNuclrResource extends NuclrResource {
 
 		this.setFullPath(path.toAbsolutePath().normalize().toString());
 		this.setUuid(path.toAbsolutePath().toString());
-		this.setReadable(Files.isReadable(path));
+
+		// NOTE: do NOT probe Files.isReadable(path) here. On Windows that opens (and
+		// closes) a handle to every file just to run an access check, which also wakes
+		// Windows Defender to scan each one — turning a directory listing into seconds
+		// of work. Far Manager stays instant because it reads the whole directory in a
+		// single enumeration pass and never touches individual files. The `readable`
+		// flag defaults to true and is only consulted by per-file actions (executable
+		// quick-view, F4 editor), which can verify readability lazily when invoked.
 
 		// Populate folder/size/link/system/hidden/timestamps from a SINGLE attribute
 		// read (two only for the rare symlink). Reading each attribute via its own

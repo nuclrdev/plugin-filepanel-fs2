@@ -197,6 +197,17 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public NuclrResourceData openResource(NuclrResource folder, AtomicBoolean cancelled) {
+		return openResource(folder, cancelled, null);
+	}
+
+	/**
+	 * Streaming listing: each entry is published to {@code sink} as soon as it is
+	 * built, so the panel paints the folder incrementally, while the returned
+	 * {@link NuclrResourceData} still carries the complete listing for the
+	 * commander's final sort and cursor placement.
+	 */
+	@Override
+	public NuclrResourceData openResource(NuclrResource folder, AtomicBoolean cancelled, EntrySink sink) {
 
 		if (cancelled != null && cancelled.get()) {
 			return null;
@@ -229,25 +240,36 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		var entries = new NuclrResourceData();
 		entries.setColumnNames(FileNuclrResource.ColumnNames);
+		if (sink != null) {
+			sink.columns(FileNuclrResource.ColumnNames);
+		}
 
 		// Add the parent directory entry if not at the root level
 		if (folder.getPath().getParent() != null) {
 			var parentCopy = Helper.build(context, path.getParent());
 			parentCopy.setName("..");
 			entries.getEntries().add(parentCopy);
+			if (sink != null) {
+				sink.add(parentCopy);
+			}
 		}
 
 		try (var stream = Files.list(path)) {
-			stream.forEach(p -> {
+			var iterator = stream.iterator();
+			while (iterator.hasNext()) {
 				if (cancelled != null && cancelled.get()) {
-					return;
+					break;
 				}
-				entries.getEntries().add(Helper.build(context, p));
-			});
+				var entry = Helper.build(context, iterator.next());
+				entries.getEntries().add(entry);
+				if (sink != null) {
+					sink.add(entry);
+				}
+			}
 		} catch (IOException e) {
 			log.error("Failed to list directory: " + path, e);
 		}
-		
+
 		return entries;
 
 	}
