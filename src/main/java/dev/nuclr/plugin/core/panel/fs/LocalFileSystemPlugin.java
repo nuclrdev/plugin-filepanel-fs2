@@ -639,13 +639,13 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				other.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
 				return;
 			}
-			
+
 			if (other!=null && other.is(BaseNuclrPlugin.Type.QuickView)) {
 				log.warn("Copy to itself");
 				this.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
 				return;
 			}
-			
+
 			if (other != null) {
 				log.warn("Copy to another plugin: " + other.name());
 				other.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
@@ -658,15 +658,14 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		// Accept copy action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
 		if (AcceptCopy.equals(actionType)) {
 			new CopyService().copy(this.currentFolder, selectedResources, focusedResource, data, callback);
+			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
+			return;
 		}
-		
+
 	}
 
-	
 	private void handleRevealInFileManager(Map<String, Object> data, List<NuclrResource> selectedResourcesForEvent,
 			NuclrPluginCallback callback) {
-		
-		
 		
 		if (false == selectedResourcesForEvent.isEmpty()) {
 			
@@ -680,7 +679,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 						Alerts.showError("Failed to reveal in file manager", "<html>Could not reveal <b>\"" + r.getFullPath() + "\"</b> in the file manager.<br/>Error: " + e.getMessage() + "</html>");
 					}
 				});
-			
 		}
 		
 	}
@@ -729,9 +727,5 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			NuclrContextMenuItem.builder().label("Delete").actionType("filepanel.delete").build()
 		);
 	}
-
-	
-
-	
 
 }

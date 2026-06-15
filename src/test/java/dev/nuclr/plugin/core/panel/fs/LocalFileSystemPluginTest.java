@@ -390,6 +390,21 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
+	void act_copyEmitsRefreshEventForTheHandlingPanel(@TempDir Path dir) {
+		LocalFileSystemPlugin p = newPlugin();
+		TestResource res = new TestResource(dir);
+
+		// other == null => copy handled in-process. Once the copy runs, the plugin asks the
+		// commander to reload the pane that owns it (identified by uuid), because that is the
+		// folder whose contents changed — not necessarily the pane that initiated the action.
+		p.act(null, "filepanel.copy", List.of(res), res, new HashMap<>(), null);
+
+		var refreshes = ctx.eventBus.emissionsOfType("refresh.plugin.file.panel");
+		assertEquals(1, refreshes.size());
+		assertEquals(p.uuid(), refreshes.get(0).event.get("plugin.uuid"));
+	}
+
+	@Test
 	void act_openOnMissingPathSwallowsIoErrors(@TempDir Path dir) {
 		LocalFileSystemPlugin p = newPlugin();
 		TestResource missing = new TestResource(dir.resolve("nope.txt"));
