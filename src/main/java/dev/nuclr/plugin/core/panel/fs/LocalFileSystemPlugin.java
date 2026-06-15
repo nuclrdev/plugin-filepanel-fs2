@@ -1,5 +1,6 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import java.awt.Component.BaselineResizeBehavior;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
@@ -27,12 +28,15 @@ import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
+import dev.nuclr.plugin.core.panel.fs.service.CopyService;
 import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclrPlugin {
+
+	private static final String AcceptCopy = "accept.copy";
 
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
@@ -616,6 +620,44 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				null);
 			
 			return;
+		}
+		
+		// If the other plugin is not filepanel-fs, just pass the event to it.
+		// If the other plugin doesn't exist, copy to itself.
+		if ("filepanel.copy".equals(actionType)) {
+
+			log.warn("Copy action: " + getSelectedResourcesForEvent(selectedResources, focusedResource));
+
+			if (other == null || other.uuid().equals(this.uuid())) {
+				log.warn("Copy to itself");
+				this.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
+				return;
+			}
+
+			if (other != null && other.id().equals(LocalFileSystemPlugin.PluginId)) {
+				log.warn("Copy to another instance of FS plugin");
+				other.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
+				return;
+			}
+			
+			if (other!=null && other.is(BaseNuclrPlugin.Type.QuickView)) {
+				log.warn("Copy to itself");
+				this.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
+				return;
+			}
+			
+			if (other != null) {
+				log.warn("Copy to another plugin: " + other.name());
+				other.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
+				return;
+			}
+
+
+		}
+		
+		// Accept copy action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
+		if (AcceptCopy.equals(actionType)) {
+			new CopyService().copy(this.currentFolder, selectedResources, focusedResource, data, callback);
 		}
 		
 	}
