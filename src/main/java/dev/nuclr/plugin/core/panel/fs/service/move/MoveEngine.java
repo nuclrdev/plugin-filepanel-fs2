@@ -140,9 +140,6 @@ public final class MoveEngine {
 				return false;
 			}
 			Path target = destinationIsExplicitTarget ? destination : destination.resolve(fileName(source));
-			if (source.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize())) {
-				continue; // moving an item onto itself is a no-op
-			}
 			moveEntry(source, target);
 			if (aborted || isCancelled()) {
 				return false;
@@ -173,6 +170,9 @@ public final class MoveEngine {
 				&& !(link && !options.isCopySymbolicLinkContents());
 
 		if (directory) {
+			if (sameLocation(source, target)) {
+				return; // a directory moved onto itself: nothing to do (don't prompt per child)
+			}
 			moveDirectory(source, target);
 		} else {
 			moveFile(source, target);
@@ -221,6 +221,13 @@ public final class MoveEngine {
 					default -> { /* ASK handled above */ }
 				}
 			}
+		}
+
+		if (sameLocation(source, effectiveTarget)) {
+			// The conflict prompt was shown, but Overwrite/Append/keep would target the source
+			// itself — leave the file untouched rather than move it onto (or append it to) itself.
+			cb.onComplete();
+			return;
 		}
 
 		try {
@@ -429,6 +436,11 @@ public final class MoveEngine {
 			}
 		}
 		return target;
+	}
+
+	/** True when both paths resolve to the same filesystem location (a move onto itself). */
+	private static boolean sameLocation(Path a, Path b) {
+		return a.toAbsolutePath().normalize().equals(b.toAbsolutePath().normalize());
 	}
 
 	private static boolean isSourceNewer(Path source, Path target) {
