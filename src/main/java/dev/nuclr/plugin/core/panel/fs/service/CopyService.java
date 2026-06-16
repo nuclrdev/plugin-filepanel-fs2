@@ -43,7 +43,8 @@ public class CopyService {
 	 * @param currentFolder     the destination directory (the receiving panel's folder)
 	 * @param selectedResources marked resources to copy; used when non-empty
 	 * @param focusedResource   the cursor item, used when nothing is marked
-	 * @param data              event payload; a {@code result.refresh} flag is set on success
+	 * @param data              event payload (unused — the destination pane is refreshed via the
+	 *                          plugin's {@code refresh.plugin.file.panel} event, not this map)
 	 * @param callback          the commander progress bridge (unused — the plugin owns its UI)
 	 */
 	public void copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
@@ -76,11 +77,10 @@ public class CopyService {
 			engine.copy(sources);
 		});
 
-		try {
-			data.put("result.refresh", true);
-		} catch (UnsupportedOperationException immutable) {
-			log.debug("Copy event payload is immutable; panel will not be auto-refreshed.");
-		}
+		// Note: the destination pane is reloaded by the "refresh.plugin.file.panel" event the
+		// handling plugin emits for its own uuid. We deliberately do NOT set "result.refresh"
+		// here: that flag is consumed by the pane that *initiated* the copy (the source), which
+		// would needlessly reload it and reset its cursor to "..".
 	}
 
 	/** Resolve the resources to act on: marked selection if present, otherwise the cursor item. */
