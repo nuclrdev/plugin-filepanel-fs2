@@ -31,12 +31,14 @@ import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import dev.nuclr.plugin.core.panel.fs.service.CopyService;
 import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
+import dev.nuclr.plugin.core.panel.fs.service.move.MoveService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclrPlugin {
 
 	private static final String AcceptCopy = "accept.copy";
+	private static final String AcceptMove = "accept.move";
 
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
@@ -661,6 +663,46 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
 			return;
 		}
+		
+		
+		// Process MOVE event
+		if ("filepanel.move".equals(actionType)) {
+
+			log.warn("Move action: " + getSelectedResourcesForEvent(selectedResources, focusedResource));
+
+			if (other == null || other.uuid().equals(this.uuid())) {
+				log.warn("Move to itself (rename)");
+				this.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
+				return;
+			}
+
+			if (other != null && other.id().equals(LocalFileSystemPlugin.PluginId)) {
+				log.warn("Move to another instance of FS plugin");
+				other.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
+				return;
+			}
+
+			if (other!=null && other.is(BaseNuclrPlugin.Type.QuickView)) {
+				log.warn("Move to itself (rename)");
+				this.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
+				return;
+			}
+
+			if (other != null) {
+				log.warn("Move to another plugin: " + other.name());
+				other.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
+				return;
+			}
+
+		}
+		
+		// Accept move action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
+		if (AcceptMove.equals(actionType)) {
+			new MoveService().move(this.currentFolder, selectedResources, focusedResource, data, callback);
+			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
+			return;
+		}
+		
 
 	}
 
