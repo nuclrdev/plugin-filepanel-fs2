@@ -24,6 +24,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
+import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -32,6 +33,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -140,6 +142,9 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 			dialog.dispose();
 		}, KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
 
+		// Left/Right arrows move between the buttons (wrapping around), in addition to Tab.
+		installArrowTraversal(overwrite, skip, rename, append, cancel);
+
 		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
 		buttons.add(overwrite);
 		buttons.add(skip);
@@ -241,6 +246,37 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 		row.add(new JLabel(label), BorderLayout.WEST);
 		row.add(new JLabel(size + "   " + when, JLabel.RIGHT), BorderLayout.EAST);
 		return row;
+	}
+
+	/**
+	 * Wire Left/Right arrow keys to move focus across a row of buttons (wrapping at the ends),
+	 * so the warning dialog is fully keyboard-navigable without reaching for Tab.
+	 */
+	private static void installArrowTraversal(JButton... buttons) {
+		for (int i = 0; i < buttons.length; i++) {
+			JButton self = buttons[i];
+			JButton left = buttons[(i - 1 + buttons.length) % buttons.length];
+			JButton right = buttons[(i + 1) % buttons.length];
+
+			self.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke("LEFT"), "focusLeft");
+			self.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke("RIGHT"), "focusRight");
+			self.getActionMap().put("focusLeft", new AbstractAction() {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					left.requestFocusInWindow();
+				}
+			});
+			self.getActionMap().put("focusRight", new AbstractAction() {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					right.requestFocusInWindow();
+				}
+			});
+		}
 	}
 
 	private static void runOnEdtAndWait(Runnable runnable) {
