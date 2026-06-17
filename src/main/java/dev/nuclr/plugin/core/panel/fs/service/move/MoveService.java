@@ -25,7 +25,9 @@ import java.util.List;
 import java.util.Map;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.FileNuclrResource;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,9 +52,11 @@ public class MoveService {
 	 * @param data              event payload; {@code result.refresh} is set on success so the
 	 *                          initiating (source) panel reloads after items move out of it
 	 * @param callback          the commander progress bridge (unused — the plugin owns its UI)
+	 * @param context           plugin context, used to build the resource the panel should focus
+	 *                          after a single-item rename
 	 */
 	public void move(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
-			Map<String, Object> data, NuclrPluginCallback callback) {
+			Map<String, Object> data, NuclrPluginCallback callback, NuclrPluginContext context) {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null) {
@@ -96,6 +100,22 @@ public class MoveService {
 		// ask the *initiating* pane to refresh via result.refresh.
 		if (data != null) {
 			data.put("result.refresh", true);
+
+			// For a single-item rename in place, put the cursor back on the renamed entry
+			// after the refresh. Only when it lands in the same folder being reloaded (an
+			// actual rename, not a move into another directory) and the file now exists.
+			if (explicitTarget && sources.size() == 1 && context != null) {
+				Path renamed = options.getDestination();
+				Path sourceParent = sources.get(0).getParent();
+				if (renamed != null && Files.exists(renamed)
+						&& renamed.getParent() != null && renamed.getParent().equals(sourceParent)) {
+					try {
+						data.put("result.refresh.selected.resource", new FileNuclrResource(context, renamed));
+					} catch (RuntimeException e) {
+						log.debug("Could not build renamed resource for focus: {}", e.getMessage());
+					}
+				}
+			}
 		}
 	}
 

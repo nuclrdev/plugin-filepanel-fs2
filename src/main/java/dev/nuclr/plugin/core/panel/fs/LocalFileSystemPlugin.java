@@ -698,7 +698,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		// Accept move action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
 		if (AcceptMove.equals(actionType)) {
-			new MoveService().move(this.currentFolder, selectedResources, focusedResource, data, callback);
+			new MoveService().move(this.currentFolder, selectedResources, focusedResource, data, callback, this.context);
 			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
 			return;
 		}
