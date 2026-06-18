@@ -131,8 +131,8 @@ final class CopyDialog {
 		final CopyOptions[] chosen = new CopyOptions[1];
 
 		copyButton.addActionListener(e -> {
-			CopyOptions opts = collect(destField, rCopy, rInherit, existing, askReadOnly, preserve, symlink, multiDest,
-					useFilter);
+			CopyOptions opts = collect(destField, defaultTarget, rCopy, rInherit, existing, askReadOnly, preserve,
+					symlink, multiDest, useFilter);
 			if (opts == null) {
 				return; // invalid destination; keep the dialog open
 			}
@@ -183,7 +183,7 @@ final class CopyDialog {
 		}
 	}
 
-	private static CopyOptions collect(JTextField destField, JRadioButton rCopy, JRadioButton rInherit,
+	private static CopyOptions collect(JTextField destField, Path baseDir, JRadioButton rCopy, JRadioButton rInherit,
 			JComboBox<String> existing, JCheckBox askReadOnly, JCheckBox preserve, JCheckBox symlink,
 			JCheckBox multiDest, JCheckBox useFilter) {
 
@@ -197,6 +197,11 @@ final class CopyDialog {
 		} catch (InvalidPathException e) {
 			log.debug("Invalid copy destination [{}]: {}", text, e.getMessage());
 			return null;
+		}
+		// A bare name or other relative path is meant relative to the panel's current folder, not
+		// the JVM working directory; otherwise the copy lands in an unrelated place.
+		if (!destination.isAbsolute() && baseDir != null) {
+			destination = baseDir.resolve(destination).normalize();
 		}
 
 		CopyOptions opts = new CopyOptions();
