@@ -60,6 +60,21 @@ class CopyEngineTest {
 	}
 
 	@Test
+	void singleFileToNonDirectoryDestinationRenamesInsteadOfCreatingFolder(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path file = Files.writeString(srcDir.resolve("a.txt"), "hello");
+		Path renamed = srcDir.resolve("b.txt"); // same folder, new name — does not exist yet
+
+		boolean ok = new CopyEngine(options(renamed, CopyOptions.ConflictMode.ASK), new RecordingCallback(), null, null)
+				.copy(List.of(file));
+
+		assertTrue(ok);
+		assertTrue(Files.isRegularFile(renamed), "destination should be a file, not a folder");
+		assertEquals("hello", Files.readString(renamed));
+		assertFalse(Files.isDirectory(renamed));
+	}
+
+	@Test
 	void copiesDirectoryTreeRecursively(@TempDir Path dir) throws IOException {
 		Path srcDir = Files.createDirectory(dir.resolve("src"));
 		Path tree = Files.createDirectory(srcDir.resolve("tree"));

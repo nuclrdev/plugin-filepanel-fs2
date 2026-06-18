@@ -32,6 +32,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
@@ -109,15 +111,27 @@ public final class CopyEngine {
 			return false;
 		}
 
-		this.totalBytes = scanTotalBytes(sources);
+		List<Path> sourceList = new ArrayList<>();
+		for (Path source : sources) {
+			sourceList.add(source);
+		}
+
+		this.totalBytes = scanTotalBytes(sourceList);
 		this.copiedBytes = 0;
 		this.aborted = false;
 
-		for (Path source : sources) {
+		// When a single item is copied and the destination is not an existing directory, the
+		// destination names the target itself (rename-on-copy) rather than a folder to drop the
+		// source into. Resolving the source name against it would create a directory named after
+		// the typed name and copy the file inside it. With multiple items the destination is
+		// always treated as a (to-be-created) folder, since they cannot share one target name.
+		boolean destIsTarget = sourceList.size() == 1 && !Files.isDirectory(destination);
+
+		for (Path source : sourceList) {
 			if (isCancelled()) {
 				return false;
 			}
-			Path target = destination.resolve(fileName(source));
+			Path target = destIsTarget ? destination : destination.resolve(fileName(source));
 			copyEntry(source, target);
 			if (aborted || isCancelled()) {
 				return false;
