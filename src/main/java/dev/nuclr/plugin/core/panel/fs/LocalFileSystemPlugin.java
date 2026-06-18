@@ -28,6 +28,7 @@ import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
+import dev.nuclr.plugin.core.panel.fs.service.ClipboardService;
 import dev.nuclr.plugin.core.panel.fs.service.CopyService;
 import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
@@ -605,6 +606,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		if ("filepanel.makeFolder".equals(actionType)) {
 			handleMakeNewFolder(data, callback);
+			return;
+		}
+
+		if ("clipboard.copy".equals(actionType)) {
+			ClipboardService.showClipboardMenu(
+					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder);
 			return;
 		}
 		
