@@ -61,6 +61,14 @@
 			<version>5.11.4</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- AssertJ Swing: robot-driven GUI tests for the plugin's modal dialogs.
+		     Brings assertj-core transitively (used for plain assertThat assertions). -->
+		<dependency>
+			<groupId>org.assertj</groupId>
+			<artifactId>assertj-swing</artifactId>
+			<version>3.17.1</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 	<build>
 		<resources>
@@ -96,7 +104,10 @@
 
 			<!-- Run JUnit 5 tests. Headless mode is forced so that any Swing
 			     dialog accidentally reached by a test fails fast (HeadlessException)
-			     instead of blocking the build on a modal window. -->
+			     instead of blocking the build on a modal window. The AssertJ Swing
+			     GUI tests (**/*GuiTest.java) are excluded from the default build; they
+			     need a real, focused display and run only under `-Pgui-tests` (see the
+			     profile below). -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
@@ -105,6 +116,9 @@
 					<systemPropertyVariables>
 						<java.awt.headless>true</java.awt.headless>
 					</systemPropertyVariables>
+					<excludes>
+						<exclude>**/*GuiTest.java</exclude>
+					</excludes>
 				</configuration>
 			</plugin>
 			<!-- Build the plugin jar (normal jar) -->
@@ -243,5 +257,53 @@ log.info("Signed: ${zipFile.name} -> ${sigFile.name}")
 		</plugins>
 	</build>
 
+	<profiles>
+		<!-- Opt-in AssertJ Swing GUI tests: `mvn test -Pgui-tests`.
+		     These drive real modal dialogs through java.awt.Robot, so they need a
+		     real, focused, uncontended desktop and cannot run headless/CI. They are
+		     excluded from the default build (see the surefire <excludes> above) and
+		     run here in their own non-headless execution. The add-opens are required
+		     for AssertJ Swing's AWT/Swing reflection on the Java 21 module system.
+
+		     Keep all robot assertions in a single test class: re-initialising the
+		     robot for a second class on the same desktop reliably fails to surface
+		     the next modal dialog (a focus/desktop-state issue, not JVM state —
+		     separate forks do not help). One continuous robot session stays green. -->
+		<profile>
+			<id>gui-tests</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<version>3.2.5</version>
+						<executions>
+							<execution>
+								<id>gui-tests</id>
+								<phase>test</phase>
+								<goals>
+									<goal>test</goal>
+								</goals>
+								<configuration combine.self="override">
+									<includes>
+										<include>**/*GuiTest.java</include>
+									</includes>
+									<systemPropertyVariables>
+										<java.awt.headless>false</java.awt.headless>
+									</systemPropertyVariables>
+									<argLine>
+										--add-opens java.desktop/java.awt=ALL-UNNAMED
+										--add-opens java.desktop/javax.swing=ALL-UNNAMED
+										--add-opens java.desktop/java.awt.event=ALL-UNNAMED
+										--add-opens java.base/java.util=ALL-UNNAMED
+									</argLine>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 
 </project>
