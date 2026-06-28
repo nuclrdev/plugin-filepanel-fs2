@@ -1,6 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
-import java.awt.Component.BaselineResizeBehavior;
+import java.awt.KeyboardFocusManager;
+import java.awt.Window;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
@@ -16,6 +17,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+import javax.swing.SwingUtilities;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
 
@@ -27,6 +30,12 @@ import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.find.FindFileContext;
+import dev.nuclr.plugin.core.panel.fs.find.FindFileDialog;
+import dev.nuclr.plugin.core.panel.fs.find.FindFileRequest;
+import dev.nuclr.plugin.core.panel.fs.find.FindFileService;
+import dev.nuclr.plugin.core.panel.fs.find.FindResultsWindow;
+import dev.nuclr.plugin.core.panel.fs.find.LocalResourceNavigator;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import dev.nuclr.plugin.core.panel.fs.service.ClipboardService;
 import dev.nuclr.plugin.core.panel.fs.service.CopyService;
@@ -590,6 +599,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			Map<String, Object> data, 
 			NuclrPluginCallback callback) {
 		
+		if ("find".equals(actionType)) {
+			openFindFileDialog(other, selectedResources);
+			return;
+		}
+
 		if ("filepanel.path.opened".equals(actionType)) {
  			log.warn("Open action: " +  getSelectedResourcesForEvent(selectedResources, focusedResource).get(0));
  			try {
@@ -764,6 +778,89 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		data.put("result.refresh", true);
 		
+	}
+
+	/**
+	 * Open the Alt+F7 Find File dialog for this panel. Builds the plugin-agnostic
+	 * {@link FindFileContext} (current/other folder, marked items, volumes, and the local
+	 * navigator) and hands the resulting {@link FindFileRequest} to {@link FindFileService}.
+	 * The dialog is non-modal and anchored to the active window.
+	 */
+	private void openFindFileDialog(BaseNuclrPlugin other, List<NuclrResource> selectedResources) {
+
+		NuclrResource otherFolder = other != null ? other.getCurrentResource() : null;
+		List<NuclrResource> marked = selectedResources != null ? selectedResources : List.of();
+
+		LocalResourceNavigator navigator = new LocalResourceNavigator(context, Helper::build);
+
+		FindFileContext findContext = FindFileContext.builder()
+				.currentFolder(this.currentFolder)
+				.otherPanelFolder(otherFolder)
+				.markedItems(marked)
+				.volumesSupplier(this::volumeResources)
+				.browser(navigator)
+				.pathParser(navigator)
+				.onSubmit(this::startFindSearch)
+				.build();
+
+		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+		SwingUtilities.invokeLater(() -> new FindFileDialog(owner, findContext).setVisible(true));
+	}
+
+	/** Resolve the local volumes (drive/mount-point roots) as resources for the Volumes scope. */
+	private List<NuclrResource> volumeResources() {
+		var roots = new ArrayList<NuclrResource>();
+		FileSystems.getDefault().getRootDirectories().forEach(p -> roots.add(Helper.build(context, p)));
+		return roots;
+	}
+
+	/**
+	 * Run a Find File search and stream the matches into a results window (the interim
+	 * presentation until the dedicated results panel lands). Owns a per-search
+	 * {@link FindFileService} that is released on completion.
+	 */
+	private void startFindSearch(FindFileRequest request) {
+
+		log.info("Find File: {}", request);
+
+		// Anchor to the main commander frame, not the (about-to-be-disposed) Find dialog,
+		// otherwise disposing the dialog would dispose the results window with it.
+		FindResultsWindow results = new FindResultsWindow(mainApplicationFrame(), request, this::navigateToResult);
+
+		FindFileService service = new FindFileService(this);
+		FindFileService.SearchHandle handle = service.search(request, results);
+		results.bind(service, handle);
+		results.setVisible(true);
+	}
+
+	/** The top-level commander frame, used to anchor Find windows independently of transient dialogs. */
+	private static Window mainApplicationFrame() {
+		for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+			if (frame.isShowing()) {
+				return frame;
+			}
+		}
+		return KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+	}
+
+	/**
+	 * Navigate the focused panel to a Find result and put the cursor on it. Opens the
+	 * resource's parent folder and selects the entry via the platform's
+	 * {@code filepanel.path.opened} event (the {@code selectChild} payload tells the panel
+	 * which child to focus after navigating).
+	 */
+	private void navigateToResult(NuclrResource resource) {
+		if (resource == null || resource.getPath() == null) {
+			return;
+		}
+		Path path = resource.getPath();
+		Path parent = path.getParent();
+		NuclrResource folder = parent != null ? Helper.build(context, parent) : resource;
+
+		var payload = new java.util.HashMap<String, Object>();
+		payload.put("resource", folder);
+		payload.put("selectChild", resource);
+		context.getEventBus().emit(this, "filepanel.path.opened", payload);
 	}
 
 	@Override

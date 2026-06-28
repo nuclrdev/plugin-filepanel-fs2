@@ -52,6 +52,30 @@
 			<scope>provided</scope>
 		</dependency>
 
+		<!-- FlatLaf + extras components (FlatTextField/FlatToggleButton/FlatComboBox/...).
+		     Provided by the commander host at runtime (loaded by the parent classloader),
+		     so they are compile-time only here and must NOT be bundled into the plugin. -->
+		<dependency>
+			<groupId>com.formdev</groupId>
+			<artifactId>flatlaf</artifactId>
+			<version>3.7.1</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.formdev</groupId>
+			<artifactId>flatlaf-extras</artifactId>
+			<version>3.7.1</version>
+			<scope>provided</scope>
+		</dependency>
+
+		<!-- JGit: .gitignore IgnoreNode semantics for the Find File dialog. Not provided
+		     by the host, so this ships in the plugin bundle's lib/ (compile scope). -->
+		<dependency>
+			<groupId>org.eclipse.jgit</groupId>
+			<artifactId>org.eclipse.jgit</artifactId>
+			<version>6.10.0.202406032230-r</version>
+		</dependency>
+
 		<!-- Test dependencies (JUnit 5 / Jupiter). Provided-scope deps above are
 		     also on the test classpath, so the SDK, Lombok and commons-* are
 		     available to tests without re-declaring them. -->
