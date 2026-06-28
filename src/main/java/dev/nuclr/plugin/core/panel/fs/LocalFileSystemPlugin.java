@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import javax.swing.SwingUtilities;
 
@@ -54,17 +55,17 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	private static final String GO_TO_PATH_SHORTCUT = IS_MAC ? "Shift+Cmd+G" : "Ctrl+Shift+G";
 
-	private String uuid = java.util.UUID.randomUUID().toString();
+	protected String uuid = java.util.UUID.randomUUID().toString();
 
 	public static final String PluginId = "dev.nuclr.plugin.core.panel.fs";
-	private static final String PluginName = "Local Filesystem Panel";
-	private static final String PluginVersion = loadVersion();
-	private static final String PluginDescription = "Provides local filesystem roots (drives/mount points) to the file panel.";
-	private static final String PluginAuthor = "Nuclr Development Team";
-	private static final String PluginLicense = "Apache-2.0";
-	private static final String PluginWebsite = "https://nuclr.dev";
-	private static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
-	private static final String PluginDocUrl = PluginPageUrl;
+	protected static final String PluginName = "Local Filesystem Panel";
+	protected static final String PluginVersion = loadVersion();
+	protected static final String PluginDescription = "Provides local filesystem roots (drives/mount points) to the file panel.";
+	protected static final String PluginAuthor = "Nuclr Development Team";
+	protected static final String PluginLicense = "Apache-2.0";
+	protected static final String PluginWebsite = "https://nuclr.dev";
+	protected static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
+	protected static final String PluginDocUrl = PluginPageUrl;
 
 	private NuclrPluginContext context;
 
@@ -270,7 +271,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			}
 		}
 
-		try (var stream = Files.list(path)) {
+		try (var stream = list(path)) {
 			var iterator = stream.iterator();
 			while (iterator.hasNext()) {
 				if (cancelled != null && cancelled.get()) {
@@ -288,6 +289,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		return entries;
 
+	}
+
+	protected Stream<Path> list(Path path) throws IOException {
+		return Files.list(path);
 	}
 
 	@Override
