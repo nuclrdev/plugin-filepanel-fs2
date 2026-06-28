@@ -36,6 +36,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -78,18 +79,24 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 	private final FlatLabel status = new FlatLabel();
 	private final FlatButton stopButton = new FlatButton();
 	private final FlatButton pauseButton = new FlatButton();
+	private final FlatButton panelButton = new FlatButton();
 	private final FlatButton closeButton = new FlatButton();
 
 	/** Invoked when the user activates a result (double-click / Enter): navigate the panel to it. */
 	private final transient Consumer<NuclrResource> onActivate;
 
+	/** Invoked when the user clicks "Panel": open all results in a temporary panel. */
+	private final transient Consumer<List<NuclrResource>> onSendToPanel;
+
 	private transient FindFileService service;
 	private transient FindFileService.SearchHandle handle;
 	private volatile boolean finished;
 
-	public FindResultsWindow(Window owner, FindFileRequest request, Consumer<NuclrResource> onActivate) {
+	public FindResultsWindow(Window owner, FindFileRequest request, Consumer<NuclrResource> onActivate,
+			Consumer<List<NuclrResource>> onSendToPanel) {
 		super(owner, "Find results — " + request.getNamePattern(), ModalityType.MODELESS);
 		this.onActivate = onActivate;
+		this.onSendToPanel = onSendToPanel;
 
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
@@ -124,12 +131,17 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		stopButton.addActionListener(e -> stopSearch());
 		pauseButton.setText("Pause");
 		pauseButton.addActionListener(e -> togglePause());
+		panelButton.setText("Panel");
+		panelButton.setToolTipText("Open these results in a temporary panel");
+		panelButton.setEnabled(false);
+		panelButton.addActionListener(e -> sendResultsToPanel());
 		closeButton.setText("Close");
 		closeButton.addActionListener(e -> dispose());
 
 		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
 		buttons.add(stopButton);
 		buttons.add(pauseButton);
+		buttons.add(panelButton);
 		buttons.add(closeButton);
 
 		JPanel content = new JPanel(new BorderLayout(0, 8));
@@ -167,6 +179,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 	@Override
 	public void onMatch(NuclrResource resource) {
 		model.addElement(resource);
+		panelButton.setEnabled(onSendToPanel != null);
 		refreshStatus(model.getSize(), -1, false);
 	}
 
@@ -230,6 +243,19 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		if (selected != null && onActivate != null) {
 			onActivate.accept(selected);
 		}
+	}
+
+	/** Hand the full result set to a temporary panel and close this window. */
+	private void sendResultsToPanel() {
+		if (onSendToPanel == null || model.isEmpty()) {
+			return;
+		}
+		List<NuclrResource> snapshot = new ArrayList<>(model.getSize());
+		for (int i = 0; i < model.getSize(); i++) {
+			snapshot.add(model.getElementAt(i));
+		}
+		onSendToPanel.accept(snapshot);
+		dispose();
 	}
 
 	// ------------------------------------------------------------------

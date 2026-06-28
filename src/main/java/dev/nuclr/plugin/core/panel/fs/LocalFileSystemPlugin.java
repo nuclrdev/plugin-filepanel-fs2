@@ -830,7 +830,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		// Anchor to the main commander frame, not the (about-to-be-disposed) Find dialog,
 		// otherwise disposing the dialog would dispose the results window with it.
-		FindResultsWindow results = new FindResultsWindow(mainApplicationFrame(), request, this::navigateToResult);
+		FindResultsWindow results = new FindResultsWindow(mainApplicationFrame(), request, this::navigateToResult,
+				hits -> openResultsInTempPanel(request, hits));
 
 		FindFileService service = new FindFileService(this);
 		FindFileService.SearchHandle handle = service.search(request, results);
@@ -846,6 +847,21 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			}
 		}
 		return KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+	}
+
+	/**
+	 * Open the whole Find result set in a temporary panel. Builds the synthetic temp-panel
+	 * root (results + title + origin folder carried in its metadata) and navigates the
+	 * focused panel to it via {@code filepanel.path.opened}; the host selects
+	 * {@link TempFilePanelPlugin} for that resource.
+	 */
+	private void openResultsInTempPanel(FindFileRequest request, List<NuclrResource> results) {
+		NuclrResource tempRoot = TempFilePanelPlugin.tempPanelResource(
+				results, "Find: " + request.getNamePattern(), this.currentFolder);
+
+		var payload = new java.util.HashMap<String, Object>();
+		payload.put("resource", tempRoot);
+		context.getEventBus().emit(this, "filepanel.path.opened", payload);
 	}
 
 	/**
