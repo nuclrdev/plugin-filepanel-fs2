@@ -166,15 +166,20 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
-	void contextMenuItems_areOpenRevealSeparatorDelete() {
+	void contextMenuItems_areOpenRevealCopySeparatorDelete() {
 		LocalFileSystemPlugin p = newPlugin();
 		List<NuclrContextMenuItem> items = p.contextMenuItems(null, List.of());
 
-		assertEquals(4, items.size());
+		assertEquals(7, items.size());
 		assertEquals("filepanel.path.opened", items.get(0).getActionType());
 		assertEquals("filepanel.path.open.in.explorer", items.get(1).getActionType());
 		assertTrue(items.get(2).isSeparator());
-		assertEquals("filepanel.delete", items.get(3).getActionType());
+		assertEquals("Copy file(s)", items.get(3).getLabel());
+		assertEquals("clipboard.copy.files", items.get(3).getActionType());
+		assertEquals("Copy full path(s)", items.get(4).getLabel());
+		assertEquals("clipboard.copy.fullPaths", items.get(4).getActionType());
+		assertTrue(items.get(5).isSeparator());
+		assertEquals("filepanel.delete", items.get(6).getActionType());
 	}
 
 	@Test

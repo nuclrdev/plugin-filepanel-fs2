@@ -141,7 +141,10 @@ public final class ClipboardService {
 	 * Copy the absolute path of each resource, one per line. A ".." entry
 	 * contributes the currently opened folder's path.
 	 */
-	private static void copyFullPaths(List<NuclrResource> resources, NuclrResource currentFolder) {
+	public static void copyFullPaths(List<NuclrResource> resources, NuclrResource currentFolder) {
+		if (resources == null || resources.isEmpty()) {
+			return;
+		}
 		String text = resources.stream()
 				.map(resource -> pathText(resource, currentFolder))
 				.collect(Collectors.joining(System.lineSeparator()));
@@ -161,7 +164,10 @@ public final class ClipboardService {
 	}
 
 	/** Copy the actual files/folders onto the clipboard as a Java file list. */
-	private static void copyFiles(List<NuclrResource> resources) {
+	public static void copyFiles(List<NuclrResource> resources) {
+		if (resources == null || resources.isEmpty()) {
+			return;
+		}
 		var files = new ArrayList<File>();
 		for (var resource : resources) {
 			if (isParent(resource) || resource.getPath() == null) {

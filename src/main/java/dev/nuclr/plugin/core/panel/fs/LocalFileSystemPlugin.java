@@ -50,6 +50,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	private static final String AcceptCopy = "accept.copy";
 	private static final String AcceptMove = "accept.move";
+	private static final String ClipboardCopy = "clipboard.copy";
+	private static final String ClipboardCopyFiles = "clipboard.copy.files";
+	private static final String ClipboardCopyFullPaths = "clipboard.copy.fullPaths";
 
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
@@ -628,8 +631,19 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
-		if ("clipboard.copy".equals(actionType)) {
+		if (ClipboardCopy.equals(actionType)) {
 			ClipboardService.showClipboardMenu(
+					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder);
+			return;
+		}
+
+		if (ClipboardCopyFiles.equals(actionType)) {
+			ClipboardService.copyFiles(getSelectedResourcesForEvent(selectedResources, focusedResource));
+			return;
+		}
+
+		if (ClipboardCopyFullPaths.equals(actionType)) {
+			ClipboardService.copyFullPaths(
 					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder);
 			return;
 		}
@@ -890,6 +904,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		return List.of(
 			NuclrContextMenuItem.builder().label("Open").actionType("filepanel.path.opened").build(),
 			NuclrContextMenuItem.builder().label("Reveal in File Manager").actionType("filepanel.path.open.in.explorer").build(),
+			NuclrContextMenuItem.builder().separator(true).build(),
+			NuclrContextMenuItem.builder().label("Copy file(s)").actionType(ClipboardCopyFiles).build(),
+			NuclrContextMenuItem.builder().label("Copy full path(s)").actionType(ClipboardCopyFullPaths).build(),
 			NuclrContextMenuItem.builder().separator(true).build(),
 			NuclrContextMenuItem.builder().label("Delete").actionType("filepanel.delete").build()
 		);
