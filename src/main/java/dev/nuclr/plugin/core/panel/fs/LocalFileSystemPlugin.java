@@ -621,6 +621,22 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
+		// Resolve a local filesystem path (e.g. the directory an embedded shell ended in) into a
+		// navigable resource so the host can move the panel there. Returns it via the data map.
+		if ("filepanel.navigate.to.path".equals(actionType)) {
+			if (data.get("path") instanceof String pathText && !pathText.isBlank()) {
+				try {
+					Path path = Path.of(pathText);
+					if (Files.isDirectory(path)) {
+						data.put("result.navigate.resource", Helper.build(context, path));
+					}
+				} catch (RuntimeException e) {
+					log.warn("Ignoring invalid navigate-to-path '{}': {}", pathText, e.getMessage());
+				}
+			}
+			return;
+		}
+
 		if ("filepanel.path.opened".equals(actionType)) {
  			log.warn("Open action: " +  getSelectedResourcesForEvent(selectedResources, focusedResource).get(0));
  			try {
