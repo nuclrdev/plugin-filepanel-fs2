@@ -679,13 +679,24 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 		
 		if ("filepanel.view".equals(actionType)) {
-			
-			/** Emit an event that will be consumed by MainWindow to show a full screen panel for the selected/focused resource. */
+
+			/** Emit an event that will be consumed by MainWindow to show a full screen viewer for the selected/focused resource. */
 			this.context.getEventBus().emit(
-				"mainpanel.view", 
+				"mainpanel.view",
 				Map.of("resource", focusedResource),
 				null);
-			
+
+			return;
+		}
+
+		if ("filepanel.edit".equals(actionType)) {
+
+			/** Emit an event that will be consumed by MainWindow to show a full screen editor for the selected/focused resource. */
+			this.context.getEventBus().emit(
+				"mainpanel.edit",
+				Map.of("resource", focusedResource),
+				null);
+
 			return;
 		}
 		
