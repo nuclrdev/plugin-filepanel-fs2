@@ -319,7 +319,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	private static void addCtrlMenuItems(List<NuclrMenuResource> items) {
-		items.add(menu("Drive Information", "Ctrl+L", "driveInfo"));
+		items.add(menu("Drive Information", "Ctrl+L", "show.drive.information"));
 	}
 
 	private static void addShiftMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
@@ -613,7 +613,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
-		if ("driveInfo".equals(actionType)) {
+		if ("show.drive.information".equals(actionType)) {
 			Path folderPath = getCurrentFolderPath();
 			if (folderPath != null) {
 				DriveInfoDialog.show(folderPath);
