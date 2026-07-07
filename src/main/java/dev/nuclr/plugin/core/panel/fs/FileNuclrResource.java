@@ -30,7 +30,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.util.List;
 import java.util.Locale;
 
@@ -44,9 +43,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class FileNuclrResource extends NuclrResource {
 
-	public static final List<String> ColumnNames = List.of("Name", "Size", "Date", "Time");
+	public static final List<String> ColumnNames = List.of(
+			"Name",
+			"Extension",
+			"Size",
+			"Type",
+			"Modified",
+			"Created",
+			"Accessed",
+			"Attributes",
+			"Full Path");
+
+	public static List<String> columnNamesFor(NuclrResource resource) {
+		return ColumnNames;
+	}
 
 	private static final LocalDateTime EPOCH = LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
+	private static final DateTimeFormatter DISPLAY_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
 	public FileNuclrResource(NuclrPluginContext ctx, Path path) {
 
@@ -76,6 +89,7 @@ public final class FileNuclrResource extends NuclrResource {
 		populateAttributes(path);
 
 		this.getMetadata().put("Name", this.getName());
+		this.getMetadata().put("Extension", extensionOf(this.getName()));
 
 		if (isFolder()) {
 			if (getName().equals("..")) {
@@ -87,8 +101,12 @@ public final class FileNuclrResource extends NuclrResource {
 			this.getMetadata().put("Size", FileUtils.byteCountToDisplaySize(this.getLength()));
 		}
 
-		this.getMetadata().put("Date", getDate(ctx.getLocale(), this.getLastModifiedDateTime()));
-		this.getMetadata().put("Time", getTime(ctx.getLocale(), this.getLastAccessDateTime()));
+		this.getMetadata().put("Type", typeLabel());
+		this.getMetadata().put("Modified", formatDateTime(this.getLastModifiedDateTime()));
+		this.getMetadata().put("Created", formatDateTime(this.getCreatedDateTime()));
+		this.getMetadata().put("Accessed", formatDateTime(this.getLastAccessDateTime()));
+		this.getMetadata().put("Attributes", attributesLabel());
+		this.getMetadata().put("Full Path", this.getFullPath());
 
 	}
 
@@ -183,22 +201,46 @@ public final class FileNuclrResource extends NuclrResource {
 		return time.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
 	}
 
-	/** Get time String in a localised format */
-	private String getTime(Locale locale, LocalDateTime date) {
-			    return date
-			.toLocalTime()
-			.format(DateTimeFormatter
-				.ofLocalizedTime(FormatStyle.SHORT)
-				.withLocale(locale));
+	static String formatDateTime(LocalDateTime date) {
+		if (date == null) {
+			return "-";
+		}
+		return date.format(DISPLAY_DATE_TIME);
 	}
 
-	/** Get date String in a localised format */
-	private String getDate(Locale locale, LocalDateTime date) {
-	    return date
-            .toLocalDate()
-            .format(DateTimeFormatter
-                .ofLocalizedDate(FormatStyle.SHORT)
-                .withLocale(locale));
+	private String typeLabel() {
+		if (isFolder()) {
+			return isLink() ? "Folder link" : "Folder";
+		}
+		return isLink() ? "File link" : "File";
+	}
+
+	private String attributesLabel() {
+		StringBuilder attributes = new StringBuilder();
+		if (isFolder()) {
+			attributes.append('D');
+		}
+		if (isLink()) {
+			attributes.append('L');
+		}
+		if (isHidden()) {
+			attributes.append('H');
+		}
+		if (isSystem()) {
+			attributes.append('S');
+		}
+		return attributes.length() == 0 ? "-" : attributes.toString();
+	}
+
+	private static String extensionOf(String name) {
+		if (name == null || name.equals("..")) {
+			return "";
+		}
+		int dot = name.lastIndexOf('.');
+		if (dot <= 0 || dot == name.length() - 1) {
+			return "";
+		}
+		return name.substring(dot + 1).toLowerCase(Locale.ROOT);
 	}
 
 	public InputStream openInputStream(OpenOption... options) throws Exception {

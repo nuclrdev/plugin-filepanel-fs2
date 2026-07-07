@@ -48,9 +48,14 @@ class FileNuclrResourceTest {
 			assertFalse(r.isFolder());
 			assertEquals(data.length, r.getLength());
 			assertEquals(r.getName(), r.getMetadata().get("Name"));
+			assertEquals("txt", r.getMetadata().get("Extension"));
 			assertEquals(FileUtils.byteCountToDisplaySize(data.length), r.getMetadata().get("Size"));
-			assertNotNull(r.getMetadata().get("Date"));
-			assertNotNull(r.getMetadata().get("Time"));
+			assertEquals("File", r.getMetadata().get("Type"));
+			assertNotNull(r.getMetadata().get("Modified"));
+			assertNotNull(r.getMetadata().get("Created"));
+			assertNotNull(r.getMetadata().get("Accessed"));
+			assertNotNull(r.getMetadata().get("Attributes"));
+			assertEquals(r.getFullPath(), r.getMetadata().get("Full Path"));
 		} finally {
 			Files.deleteIfExists(file);
 		}
@@ -78,6 +83,17 @@ class FileNuclrResourceTest {
 		assertNotNull(r.getLastAccessDateTime());
 		// A freshly written file is well after the epoch sentinel used for unreadable entries.
 		assertTrue(r.getLastModifiedDateTime().isAfter(epoch));
+	}
+
+	@Test
+	void dateTimeMetadata_isFixedWidthAndZeroPadded() {
+		String shortParts = FileNuclrResource.formatDateTime(LocalDateTime.of(2026, 1, 2, 3, 4, 5));
+		String longParts = FileNuclrResource.formatDateTime(LocalDateTime.of(2026, 11, 22, 13, 14, 15));
+
+		assertEquals("2026-01-02 03:04:05", shortParts);
+		assertEquals("2026-11-22 13:14:15", longParts);
+		assertEquals(shortParts.length(), longParts.length());
+		assertEquals("-", FileNuclrResource.formatDateTime(null));
 	}
 
 	@Test
@@ -118,8 +134,18 @@ class FileNuclrResourceTest {
 	}
 
 	@Test
-	void columnNames_areTheFourDisplayedColumns() {
-		assertEquals(java.util.List.of("Name", "Size", "Date", "Time"), FileNuclrResource.ColumnNames);
+	void columnNamesFor_returnsTheColumnsAvailableForTheResource() {
+		assertEquals(java.util.List.of(
+				"Name",
+				"Extension",
+				"Size",
+				"Type",
+				"Modified",
+				"Created",
+				"Accessed",
+				"Attributes",
+				"Full Path"), FileNuclrResource.ColumnNames);
+		assertEquals(FileNuclrResource.ColumnNames, FileNuclrResource.columnNamesFor(null));
 	}
 
 	@Test

@@ -260,9 +260,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		this.currentFolder = folder;
 
 		var entries = new NuclrResourceData();
-		entries.setColumnNames(FileNuclrResource.ColumnNames);
+		var columnNames = FileNuclrResource.columnNamesFor(folder);
+		entries.setColumnNames(columnNames);
 		if (sink != null) {
-			sink.columns(FileNuclrResource.ColumnNames);
+			sink.columns(columnNames);
 		}
 
 		// Add the parent directory entry if not at the root level
@@ -326,18 +327,18 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	/**
 	 * Sorts this panel exposes, shown on the function-key bar under Ctrl. The event type is
 	 * {@code "filepanel.sort:" + criterion [ + ":" + columnName ]}; the host maps the criterion to a
-	 * comparator and uses the column name (matching {@link FileNuclrResource#ColumnNames}) for the
+	 * comparator and uses the column name (matching {@link FileNuclrResource#columnNamesFor(NuclrResource)}) for the
 	 * header arrow and click-to-sort. Owner/description are intentionally omitted: this plugin does
 	 * not populate that data, so offering those sorts would be meaningless.
 	 */
 	private static void addSortMenuItems(List<NuclrMenuResource> items) {
 		items.add(menu("Name", "Ctrl+F3", "filepanel.sort:name:Name"));
-		items.add(menu("Extension", "Ctrl+F4", "filepanel.sort:ext"));
-		items.add(menu("Write time", "Ctrl+F5", "filepanel.sort:modified:Date"));
+		items.add(menu("Extension", "Ctrl+F4", "filepanel.sort:ext:Extension"));
+		items.add(menu("Write time", "Ctrl+F5", "filepanel.sort:modified:Modified"));
 		items.add(menu("Size", "Ctrl+F6", "filepanel.sort:size:Size"));
 		items.add(menu("Unsort", "Ctrl+F7", "filepanel.sort:unsorted"));
-		items.add(menu("Create time", "Ctrl+F8", "filepanel.sort:created"));
-		items.add(menu("Access time", "Ctrl+F9", "filepanel.sort:access:Time"));
+		items.add(menu("Create time", "Ctrl+F8", "filepanel.sort:created:Created"));
+		items.add(menu("Access time", "Ctrl+F9", "filepanel.sort:access:Accessed"));
 		items.add(menu("Sort", "Ctrl+F12", "filepanel.sort:dialog"));
 	}
 

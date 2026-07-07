@@ -221,7 +221,7 @@ class LocalFileSystemPluginTest {
 		NuclrResourceData data = p.openResource(new TestResource(dir), new AtomicBoolean(false));
 
 		assertNotNull(data);
-		assertEquals(FileNuclrResource.ColumnNames, data.getColumnNames());
+		assertEquals(FileNuclrResource.columnNamesFor(new TestResource(dir)), data.getColumnNames());
 		List<String> names = data.getEntries().stream().map(NuclrResource::getName).toList();
 		assertTrue(names.contains(".."), "a non-root folder gets a parent entry");
 		assertTrue(names.contains("a.txt"));
@@ -241,7 +241,7 @@ class LocalFileSystemPluginTest {
 		NuclrResourceData data = p.openResource(new TestResource(dir), new AtomicBoolean(false), sink);
 
 		assertEquals(1, sink.columnsCalls, "columns declared exactly once");
-		assertEquals(FileNuclrResource.ColumnNames, sink.columns);
+		assertEquals(FileNuclrResource.columnNamesFor(new TestResource(dir)), sink.columns);
 		assertEquals(data.getEntries().size(), sink.added.size(), "sink sees every entry");
 	}
 
