@@ -183,6 +183,33 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
+	void sortMenuColumnBackedOptionsMatchExposedColumns(@TempDir Path dir) {
+		LocalFileSystemPlugin p = newPlugin();
+		List<NuclrMenuResource> items = p.menuItems(new TestResource(dir));
+
+		assertEquals("Modified", labelFor(items, "Ctrl+F5"));
+		assertEquals("Created", labelFor(items, "Ctrl+F8"));
+		assertEquals("Accessed", labelFor(items, "Ctrl+F9"));
+
+		for (NuclrMenuResource item : items) {
+			String eventType = item.getEventType();
+			if (eventType == null || !eventType.startsWith("filepanel.sort:")) {
+				continue;
+			}
+
+			String sort = eventType.substring("filepanel.sort:".length());
+			if ("unsorted".equals(sort) || "dialog".equals(sort)) {
+				continue;
+			}
+
+			String[] parts = sort.split(":", 2);
+			assertEquals(2, parts.length, "column-backed sort events must name their column: " + eventType);
+			assertTrue(FileNuclrResource.ColumnNames.contains(parts[1]), "sort column is not exposed: " + eventType);
+			assertEquals(parts[1], item.getName(), "sort label should match its exposed column");
+		}
+	}
+
+	@Test
 	void getPluginMenuItems_listsFilesystemRoots() {
 		LocalFileSystemPlugin p = newPlugin();
 		var holder = p.getPluginMenuItems();

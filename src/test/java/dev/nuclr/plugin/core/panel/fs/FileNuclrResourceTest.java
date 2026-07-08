@@ -18,6 +18,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
+import java.util.Locale;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
@@ -86,14 +89,28 @@ class FileNuclrResourceTest {
 	}
 
 	@Test
-	void dateTimeMetadata_isFixedWidthAndZeroPadded() {
-		String shortParts = FileNuclrResource.formatDateTime(LocalDateTime.of(2026, 1, 2, 3, 4, 5));
-		String longParts = FileNuclrResource.formatDateTime(LocalDateTime.of(2026, 11, 22, 13, 14, 15));
+	void dateTimeMetadata_usesRequestedLocale() {
+		LocalDateTime date = LocalDateTime.of(2026, 1, 2, 3, 4, 5);
 
-		assertEquals("2026-01-02 03:04:05", shortParts);
-		assertEquals("2026-11-22 13:14:15", longParts);
-		assertEquals(shortParts.length(), longParts.length());
-		assertEquals("-", FileNuclrResource.formatDateTime(null));
+		String us = FileNuclrResource.formatDateTime(date, Locale.US);
+		String germany = FileNuclrResource.formatDateTime(date, Locale.GERMANY);
+
+		assertEquals(localized(date, Locale.US), us);
+		assertEquals(localized(date, Locale.GERMANY), germany);
+		assertFalse(us.equals(germany));
+		assertEquals("-", FileNuclrResource.formatDateTime(null, Locale.GERMANY));
+	}
+
+	@Test
+	void constructorFormatsDateMetadataWithContextLocale(@TempDir Path dir) throws Exception {
+		Path file = dir.resolve("localized.txt");
+		Files.writeString(file, "content");
+
+		FileNuclrResource r = new FileNuclrResource(new FakeContext(Locale.GERMANY), file);
+
+		assertEquals(
+				FileNuclrResource.formatDateTime(r.getLastModifiedDateTime(), Locale.GERMANY),
+				r.getMetadata().get("Modified"));
 	}
 
 	@Test
@@ -153,5 +170,11 @@ class FileNuclrResourceTest {
 		// The class deliberately does NOT probe Files.isReadable; the flag stays true.
 		FileNuclrResource r = new FileNuclrResource(ctx, dir);
 		assertTrue(r.isReadable());
+	}
+
+	private static String localized(LocalDateTime date, Locale locale) {
+		return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT, FormatStyle.MEDIUM)
+				.withLocale(locale)
+				.format(date);
 	}
 }

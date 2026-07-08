@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.List;
 import java.util.Locale;
 
@@ -59,7 +60,9 @@ public final class FileNuclrResource extends NuclrResource {
 	}
 
 	private static final LocalDateTime EPOCH = LocalDateTime.ofEpochSecond(0, 0, ZoneOffset.UTC);
-	private static final DateTimeFormatter DISPLAY_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+	private static final DateTimeFormatter DISPLAY_DATE_TIME = DateTimeFormatter.ofLocalizedDateTime(
+			FormatStyle.SHORT,
+			FormatStyle.MEDIUM);
 
 	public FileNuclrResource(NuclrPluginContext ctx, Path path) {
 
@@ -101,10 +104,11 @@ public final class FileNuclrResource extends NuclrResource {
 			this.getMetadata().put("Size", FileUtils.byteCountToDisplaySize(this.getLength()));
 		}
 
+		DateTimeFormatter dateTimeFormatter = dateTimeFormatterFor(ctx);
 		this.getMetadata().put("Type", typeLabel());
-		this.getMetadata().put("Modified", formatDateTime(this.getLastModifiedDateTime()));
-		this.getMetadata().put("Created", formatDateTime(this.getCreatedDateTime()));
-		this.getMetadata().put("Accessed", formatDateTime(this.getLastAccessDateTime()));
+		this.getMetadata().put("Modified", formatDateTime(this.getLastModifiedDateTime(), dateTimeFormatter));
+		this.getMetadata().put("Created", formatDateTime(this.getCreatedDateTime(), dateTimeFormatter));
+		this.getMetadata().put("Accessed", formatDateTime(this.getLastAccessDateTime(), dateTimeFormatter));
 		this.getMetadata().put("Attributes", attributesLabel());
 		this.getMetadata().put("Full Path", this.getFullPath());
 
@@ -201,11 +205,23 @@ public final class FileNuclrResource extends NuclrResource {
 		return time.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
 	}
 
-	static String formatDateTime(LocalDateTime date) {
+	static String formatDateTime(LocalDateTime date, Locale locale) {
+		return formatDateTime(date, DISPLAY_DATE_TIME.withLocale(resolveLocale(locale)));
+	}
+
+	private static String formatDateTime(LocalDateTime date, DateTimeFormatter formatter) {
 		if (date == null) {
 			return "-";
 		}
-		return date.format(DISPLAY_DATE_TIME);
+		return formatter.format(date);
+	}
+
+	private static DateTimeFormatter dateTimeFormatterFor(NuclrPluginContext ctx) {
+		return DISPLAY_DATE_TIME.withLocale(ctx != null ? resolveLocale(ctx.getLocale()) : Locale.getDefault());
+	}
+
+	private static Locale resolveLocale(Locale locale) {
+		return locale != null ? locale : Locale.getDefault();
 	}
 
 	private String typeLabel() {
