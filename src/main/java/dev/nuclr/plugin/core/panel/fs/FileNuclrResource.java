@@ -95,7 +95,7 @@ public final class FileNuclrResource extends NuclrResource {
 			if (getName().equals("..")) {
 				this.getMetadata().put("Size", "Up");
 			} else {
-				this.getMetadata().put("Size", "Folder");
+				this.getMetadata().put("Size", "");
 			}
 		} else {
 			this.getMetadata().put("Size", FileUtils.byteCountToDisplaySize(this.getLength()));
