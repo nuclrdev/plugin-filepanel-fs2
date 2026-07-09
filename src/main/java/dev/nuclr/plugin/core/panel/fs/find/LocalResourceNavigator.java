@@ -29,6 +29,7 @@ import javax.swing.JFileChooser;
 
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -62,12 +63,19 @@ public final class LocalResourceNavigator implements ResourceBrowser, ResourcePa
 			File dir = start.getPath().toFile();
 			chooser.setCurrentDirectory(dir.isDirectory() ? dir : dir.getParentFile());
 		}
+		SoundEvents.popup(context);
 		int result = chooser.showOpenDialog(owner);
 		if (result != JFileChooser.APPROVE_OPTION) {
+			SoundEvents.cancel(context);
 			return Optional.empty();
 		}
 		File selected = chooser.getSelectedFile();
-		return selected != null ? Optional.of(resourceFactory.apply(context, selected.toPath())) : Optional.empty();
+		if (selected == null) {
+			SoundEvents.cancel(context);
+			return Optional.empty();
+		}
+		SoundEvents.confirmation(context);
+		return Optional.of(resourceFactory.apply(context, selected.toPath()));
 	}
 
 	@Override

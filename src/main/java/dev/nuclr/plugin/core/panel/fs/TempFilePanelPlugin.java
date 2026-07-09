@@ -193,7 +193,7 @@ public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 			NuclrResource focusedResource, Map<String, Object> data, NuclrPluginCallback callback) {
 
 		if (ACCEPT_COPY.equals(actionType) || ACCEPT_MOVE.equals(actionType)) {
-			Alerts.showError("Temporary panel",
+			Alerts.showError(ctx, "Temporary panel",
 					"A temporary results panel is a virtual collection and cannot be a copy or move destination.");
 			return;
 		}

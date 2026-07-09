@@ -54,7 +54,7 @@ public final class DeleteService {
 	private DeleteService() {
 	}
 
-	public static void delete(List<NuclrResource> sources, boolean permanent, NuclrPluginCallback cb,
+	public static boolean delete(List<NuclrResource> sources, boolean permanent, NuclrPluginCallback cb,
 			ErrorPrompt errorPrompt) {
 
 		boolean useTrash = !permanent && trashSupported();
@@ -62,7 +62,7 @@ public final class DeleteService {
 		for (NuclrResource src : sources) {
 
 			if (cb != null && cb.isCancelled()) {
-				return;
+				return false;
 			}
 
 			Path path = src.getPath();
@@ -84,7 +84,7 @@ public final class DeleteService {
 					deletePhysical(path, cb);
 				}
 				if (cb != null && cb.isCancelled()) {
-					return; // cancelled mid-item: it may be only partially deleted, do not report success
+					return false; // cancelled mid-item: it may be only partially deleted, do not report success
 				}
 				if (cb != null) {
 					cb.onComplete();
@@ -96,10 +96,11 @@ public final class DeleteService {
 				}
 				boolean skip = errorPrompt == null || errorPrompt.onError(src, e);
 				if (!skip) {
-					return; // Abort
+					return false; // Abort
 				}
 			}
 		}
+		return true;
 	}
 
 	private static void deletePhysical(Path path, NuclrPluginCallback cb) throws IOException {

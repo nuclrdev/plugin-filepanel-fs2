@@ -26,7 +26,9 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -35,39 +37,46 @@ public class MakeNewFolderService {
 	private static final String DialogTitle = "Make Folder";
 
 	public static Path makeNewFolder(NuclrResource currentFolder, NuclrPluginCallback callback) {
+		return makeNewFolder(currentFolder, callback, null);
+	}
+
+	public static Path makeNewFolder(NuclrResource currentFolder, NuclrPluginCallback callback,
+			NuclrPluginContext context) {
 
 		if (currentFolder == null || currentFolder.getPath() == null) {
-			Alerts.showError(DialogTitle, "No folder is open.");
+			Alerts.showError(context, DialogTitle, "No folder is open.");
 			return null;
 		}
 
 		Path parent = currentFolder.getPath();
 		if (!Files.isDirectory(parent)) {
-			Alerts.showError(DialogTitle, "The current item is not a folder.");
+			Alerts.showError(context, DialogTitle, "The current item is not a folder.");
 			return null;
 		}
 		if (!Files.isWritable(parent)) {
-			Alerts.showError(DialogTitle, "The current folder is not writable.");
+			Alerts.showError(context, DialogTitle, "The current folder is not writable.");
 			return null;
 		}
 
-		String folderName = promptFolderName();
+		String folderName = promptFolderName(context);
 		if (folderName == null) {
+			SoundEvents.cancel(context);
 			return null;
 		}
 		folderName = folderName.trim();
 		if (folderName.isBlank()) {
+			SoundEvents.cancel(context);
 			return null;
 		}
 		if (isInvalidSingleFolderName(folderName)) {
-			Alerts.showError(DialogTitle, "Folder name cannot contain path separators.");
+			Alerts.showError(context, DialogTitle, "Folder name cannot contain path separators.");
 			return null;
 		}
 
 		try {
 			Path target = parent.resolve(folderName);
 			if (Files.exists(target)) {
-				Alerts.showError(DialogTitle, "A file or folder with that name already exists.");
+				Alerts.showError(context, DialogTitle, "A file or folder with that name already exists.");
 				return null;
 			}
 			if (callback != null) {
@@ -77,13 +86,14 @@ public class MakeNewFolderService {
 			if (callback != null) {
 				callback.onComplete();
 			}
+			SoundEvents.confirmation(context);
 			return target;
 		} catch (InvalidPathException | IOException | UnsupportedOperationException e) {
 			log.warn("Failed to create folder [{}] in [{}]: {}", folderName, parent, e.getMessage(), e);
 			if (callback != null) {
 				callback.onError(folderName, e instanceof Exception ex ? ex : new IOException(e));
 			}
-			Alerts.showError(DialogTitle, (e.getMessage() != null ? e.getMessage() : "Could not create folder."));
+			Alerts.showError(context, DialogTitle, (e.getMessage() != null ? e.getMessage() : "Could not create folder."));
 			return null;
 		}
 	}
@@ -96,8 +106,9 @@ public class MakeNewFolderService {
 				|| folderName.indexOf('\0') >= 0;
 	}
 
-	private static String promptFolderName() {
+	private static String promptFolderName(NuclrPluginContext context) {
 		final String[] result = new String[1];
+		SoundEvents.popup(context);
 		Alerts.runOnEdtAndWait(() -> result[0] = JOptionPane.showInputDialog(null, "Folder name:", DialogTitle,
 				JOptionPane.PLAIN_MESSAGE));
 		return result[0];

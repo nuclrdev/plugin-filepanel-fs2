@@ -20,12 +20,19 @@ package dev.nuclr.plugin.core.panel.fs.service;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public final class Alerts {
 
 	public static void showError(String title, String message) {
+		showError(null, title, message);
+	}
+
+	public static void showError(NuclrPluginContext context, String title, String message) {
+		SoundEvents.error(context);
 		runOnEdtAndWait(() -> JOptionPane.showMessageDialog(null, message, title, JOptionPane.ERROR_MESSAGE));
 	}	
 	

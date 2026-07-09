@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 
 /**
@@ -42,6 +43,7 @@ public final class FindFileContext {
 	private final ResourceBrowser browser;
 	private final ResourcePathParser pathParser;
 	private final Consumer<FindFileRequest> onSubmit;
+	private final NuclrPluginContext pluginContext;
 
 	private FindFileContext(Builder b) {
 		this.currentFolder = b.currentFolder;
@@ -51,6 +53,7 @@ public final class FindFileContext {
 		this.browser = b.browser;
 		this.pathParser = b.pathParser;
 		this.onSubmit = b.onSubmit;
+		this.pluginContext = b.pluginContext;
 	}
 
 	public NuclrResource getCurrentFolder() {
@@ -82,6 +85,10 @@ public final class FindFileContext {
 		return onSubmit;
 	}
 
+	public NuclrPluginContext getPluginContext() {
+		return pluginContext;
+	}
+
 	public boolean hasOtherPanel() {
 		return otherPanelFolder != null;
 	}
@@ -104,6 +111,7 @@ public final class FindFileContext {
 		private ResourceBrowser browser;
 		private ResourcePathParser pathParser;
 		private Consumer<FindFileRequest> onSubmit;
+		private NuclrPluginContext pluginContext;
 
 		private Builder() {
 		}
@@ -140,6 +148,11 @@ public final class FindFileContext {
 
 		public Builder onSubmit(Consumer<FindFileRequest> value) {
 			this.onSubmit = value;
+			return this;
+		}
+
+		public Builder pluginContext(NuclrPluginContext value) {
+			this.pluginContext = value;
 			return this;
 		}
 

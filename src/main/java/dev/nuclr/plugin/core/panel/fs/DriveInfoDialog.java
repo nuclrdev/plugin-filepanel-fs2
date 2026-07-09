@@ -34,6 +34,7 @@ import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.plugin.core.panel.fs.DriveInfoService.DriveInfo;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,10 +57,16 @@ final class DriveInfoDialog {
 
 	/** Inspect {@code path} and show the info dialog on the EDT. Safe to call from any thread. */
 	static void show(Path path) {
+		show(path, null);
+	}
+
+	/** Inspect {@code path} and show the info dialog on the EDT. Safe to call from any thread. */
+	static void show(Path path, NuclrPluginContext context) {
 		if (path == null) {
 			return;
 		}
 		DriveInfo info = DriveInfoService.inspect(path);
+		SoundEvents.confirmation(context);
 		SwingUtilities.invokeLater(() -> render(info));
 	}
 

@@ -22,9 +22,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -49,33 +52,47 @@ public class CopyService {
 	 */
 	public void copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
 			Map<String, Object> data, NuclrPluginCallback callback) {
+		copy(currentFolder, selectedResources, focusedResource, data, callback, null);
+	}
+
+	public void copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
+			Map<String, Object> data, NuclrPluginCallback callback, NuclrPluginContext context) {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null || !Files.isDirectory(destination)) {
-			Alerts.showError(DialogTitle, "The destination is not a folder.");
+			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
 			return;
 		}
 
 		List<Path> sources = collectSources(selectedResources, focusedResource);
 		if (sources.isEmpty()) {
-			Alerts.showError(DialogTitle, "There is nothing to copy.");
+			Alerts.showError(context, DialogTitle, "There is nothing to copy.");
 			return;
 		}
 
-		CopyOptions options = CopyDialog.show(header(sources), destination);
+		CopyOptions options = CopyDialog.show(header(sources), destination, context);
 		if (options == null) {
+			SoundEvents.cancel(context);
 			return; // cancelled
 		}
 		if (options.getDestination() == null) {
 			options.setDestination(destination);
 		}
 
-		CopyConflictDialog conflictDialog = new CopyConflictDialog();
+		CopyConflictDialog conflictDialog = new CopyConflictDialog(context);
+		AtomicBoolean completed = new AtomicBoolean(false);
 
 		CopyProgressDialog.run(progress -> {
-			CopyEngine engine = new CopyEngine(options, progress, conflictDialog, (src, e) -> true);
-			engine.copy(sources);
-		});
+			CopyEngine engine = new CopyEngine(options, progress, conflictDialog, (src, e) -> {
+				SoundEvents.error(context);
+				return true;
+			});
+			completed.set(engine.copy(sources));
+		}, context);
+
+		if (completed.get()) {
+			SoundEvents.processComplete(context);
+		}
 
 		// Note: the destination pane is reloaded by the "refresh.plugin.file.panel" event the
 		// handling plugin emits for its own uuid. We deliberately do NOT set "result.refresh"

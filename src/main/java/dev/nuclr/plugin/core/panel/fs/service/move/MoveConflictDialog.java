@@ -45,6 +45,8 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import dev.nuclr.plugin.core.panel.fs.service.move.MoveEngine.Action;
 import dev.nuclr.plugin.core.panel.fs.service.move.MoveEngine.Resolution;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +67,15 @@ final class MoveConflictDialog implements MoveEngine.ConflictResolver {
 
 	/** Sticky answer once "Remember choice" was ticked; {@code null} until then. */
 	private Resolution remembered;
+	private final NuclrPluginContext context;
+
+	MoveConflictDialog() {
+		this(null);
+	}
+
+	MoveConflictDialog(NuclrPluginContext context) {
+		this.context = context;
+	}
 
 	@Override
 	public Resolution resolve(Path source, Path target) {
@@ -170,9 +181,13 @@ final class MoveConflictDialog implements MoveEngine.ConflictResolver {
 		dialog.pack();
 		dialog.setLocationRelativeTo(owner);
 		SwingUtilities.invokeLater(overwrite::requestFocusInWindow);
+		SoundEvents.warning(context);
 		dialog.setVisible(true);
 
 		Resolution resolution = picked[0] != null ? picked[0] : Resolution.of(Action.CANCEL);
+		if (resolution.action() == Action.CANCEL) {
+			SoundEvents.cancel(context);
+		}
 		if (remember.isSelected() && resolution.action() != Action.CANCEL) {
 			remembered = resolution;
 		}
@@ -227,8 +242,12 @@ final class MoveConflictDialog implements MoveEngine.ConflictResolver {
 		dialog.setMinimumSize(new Dimension(480, dialog.getHeight()));
 		dialog.setLocationRelativeTo(owner);
 		SwingUtilities.invokeLater(field::requestFocusInWindow);
+		SoundEvents.popup(context);
 		dialog.setVisible(true);
 
+		if (result[0] == null) {
+			SoundEvents.cancel(context);
+		}
 		return result[0];
 	}
 

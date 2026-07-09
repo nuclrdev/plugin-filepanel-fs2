@@ -59,6 +59,7 @@ import com.formdev.flatlaf.extras.components.FlatTextField;
 import com.formdev.flatlaf.extras.components.FlatToggleButton;
 
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -342,7 +343,7 @@ public final class FindFileDialog extends JDialog {
 
 		FlatButton cancel = new FlatButton();
 		cancel.setText("Cancel");
-		cancel.addActionListener(e -> dispose());
+		cancel.addActionListener(e -> cancelDialog());
 
 		JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
 		actions.add(cancel);
@@ -447,12 +448,19 @@ public final class FindFileDialog extends JDialog {
 		try {
 			request = collectRequest();
 		} catch (IllegalArgumentException e) {
+			SoundEvents.warning(context.getPluginContext());
 			JOptionPane.showMessageDialog(this, e.getMessage(), "Invalid search", JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		if (context.getOnSubmit() != null) {
 			context.getOnSubmit().accept(request);
 		}
+		SoundEvents.confirmation(context.getPluginContext());
+		dispose();
+	}
+
+	private void cancelDialog() {
+		SoundEvents.cancel(context.getPluginContext());
 		dispose();
 	}
 
@@ -560,7 +568,7 @@ public final class FindFileDialog extends JDialog {
 		ActionMap act = root.getActionMap();
 
 		in.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "find.cancel");
-		act.put("find.cancel", action(this::dispose));
+		act.put("find.cancel", action(this::cancelDialog));
 
 		// Enter triggers Find from any focused field (combo popups still consume their own Enter).
 		in.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "find.run");

@@ -37,7 +37,9 @@ import java.util.stream.Collectors;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -80,15 +82,21 @@ public final class ClipboardService {
 	 *                     full path for any {@code ".."} entry in {@code resources}
 	 */
 	public static void showClipboardMenu(List<NuclrResource> resources, NuclrResource currentFolder) {
+		showClipboardMenu(resources, currentFolder, null);
+	}
+
+	public static void showClipboardMenu(List<NuclrResource> resources, NuclrResource currentFolder,
+			NuclrPluginContext context) {
 
 		if (resources == null || resources.isEmpty()) {
 			return;
 		}
 
-		Alerts.runOnEdtAndWait(() -> showMenu(resources, currentFolder));
+		Alerts.runOnEdtAndWait(() -> showMenu(resources, currentFolder, context));
 	}
 
-	private static void showMenu(List<NuclrResource> resources, NuclrResource currentFolder) {
+	private static void showMenu(List<NuclrResource> resources, NuclrResource currentFolder,
+			NuclrPluginContext context) {
 
 		// "Copy selected files/folders" needs real files, so disable it when the
 		// selection contains the ".." entry (which has no file of its own).
@@ -97,17 +105,18 @@ public final class ClipboardService {
 		var popup = new JPopupMenu();
 
 		var copyPath = new javax.swing.JMenuItem("Copy full path to clipboard");
-		copyPath.addActionListener(e -> copyFullPaths(resources, currentFolder));
+		copyPath.addActionListener(e -> copyFullPaths(resources, currentFolder, context));
 		popup.add(copyPath);
 
 		var copyFiles = new javax.swing.JMenuItem("Copy selected files/folders to clipboard");
 		copyFiles.setEnabled(!containsParent);
-		copyFiles.addActionListener(e -> copyFiles(resources));
+		copyFiles.addActionListener(e -> copyFiles(resources, context));
 		popup.add(copyFiles);
 
 		Component invoker = resolveInvoker();
 		if (invoker == null) {
 			log.warn("No invoker component available to anchor the clipboard popup menu");
+			SoundEvents.warning(context);
 			return;
 		}
 
@@ -119,6 +128,7 @@ public final class ClipboardService {
 				Math.max(0, (screen.width - menu.width) / 2),
 				Math.max(0, (screen.height - menu.height) / 2));
 		SwingUtilities.convertPointFromScreen(location, invoker);
+		SoundEvents.popup(context);
 		popup.show(invoker, location.x, location.y);
 	}
 
@@ -142,13 +152,18 @@ public final class ClipboardService {
 	 * contributes the currently opened folder's path.
 	 */
 	public static void copyFullPaths(List<NuclrResource> resources, NuclrResource currentFolder) {
+		copyFullPaths(resources, currentFolder, null);
+	}
+
+	public static void copyFullPaths(List<NuclrResource> resources, NuclrResource currentFolder,
+			NuclrPluginContext context) {
 		if (resources == null || resources.isEmpty()) {
 			return;
 		}
 		String text = resources.stream()
 				.map(resource -> pathText(resource, currentFolder))
 				.collect(Collectors.joining(System.lineSeparator()));
-		setClipboardContents(new StringSelection(text));
+		emitClipboardResult(setClipboardContents(new StringSelection(text)), context);
 	}
 
 	private static String pathText(NuclrResource resource, NuclrResource currentFolder) {
@@ -165,6 +180,10 @@ public final class ClipboardService {
 
 	/** Copy the actual files/folders onto the clipboard as a Java file list. */
 	public static void copyFiles(List<NuclrResource> resources) {
+		copyFiles(resources, null);
+	}
+
+	public static void copyFiles(List<NuclrResource> resources, NuclrPluginContext context) {
 		if (resources == null || resources.isEmpty()) {
 			return;
 		}
@@ -178,15 +197,25 @@ public final class ClipboardService {
 		if (files.isEmpty()) {
 			return;
 		}
-		setClipboardContents(new FileListTransferable(files));
+		emitClipboardResult(setClipboardContents(new FileListTransferable(files)), context);
 	}
 
-	private static void setClipboardContents(Transferable contents) {
+	private static boolean setClipboardContents(Transferable contents) {
 		try {
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 			clipboard.setContents(contents, null);
+			return true;
 		} catch (RuntimeException e) {
 			log.warn("Failed to set clipboard contents: {}", e.getMessage(), e);
+			return false;
+		}
+	}
+
+	private static void emitClipboardResult(boolean copied, NuclrPluginContext context) {
+		if (copied) {
+			SoundEvents.confirmation(context);
+		} else {
+			SoundEvents.error(context);
 		}
 	}
 

@@ -43,6 +43,8 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -66,9 +68,14 @@ final class MoveDialog {
 	 * @return the chosen options, or {@code null} if the user cancelled
 	 */
 	static MoveOptions show(String header, String prefill) {
+		return show(header, prefill, null);
+	}
+
+	static MoveOptions show(String header, String prefill, NuclrPluginContext context) {
 
 		final MoveOptions[] result = new MoveOptions[1];
 
+		SoundEvents.popup(context);
 		runOnEdtAndWait(() -> result[0] = build(header, prefill != null ? prefill : ""));
 		return result[0];
 	}

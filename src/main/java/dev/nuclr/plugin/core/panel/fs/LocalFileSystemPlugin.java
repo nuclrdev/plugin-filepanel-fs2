@@ -548,7 +548,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		// If a director and not readable, show a warning message, don't open the folder
 		if (Files.isDirectory(effective) && false == Files.isReadable(effective)) {
 			log.warn("Directory {} is not readable", effective);
-			Alerts.showError("Directory is not readable", "<html>The directory <b>\"" + effective.toAbsolutePath() + "\"</b> cannot be opened because it is not readable.<br/>Please check the permissions and try again.</html>");
+			Alerts.showError(context, "Directory is not readable", "<html>The directory <b>\"" + effective.toAbsolutePath() + "\"</b> cannot be opened because it is not readable.<br/>Please check the permissions and try again.</html>");
 			return false;
 		}
 
@@ -638,7 +638,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		if ("show.drive.information".equals(actionType)) {
 			Path folderPath = getCurrentFolderPath();
 			if (folderPath != null) {
-				DriveInfoDialog.show(folderPath);
+				DriveInfoDialog.show(folderPath, context);
 			}
 			return;
 		}
@@ -661,9 +661,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		if ("filepanel.path.opened".equals(actionType)) {
  			log.warn("Open action: " +  getSelectedResourcesForEvent(selectedResources, focusedResource).get(0));
- 			try {
+ 		try {
 				SystemOpen.open(getSelectedResourcesForEvent(selectedResources, focusedResource).get(0).getPath());
+				SoundEvents.confirmation(context);
 			} catch (IOException e) {
+				SoundEvents.error(context);
 			}
 			return;
 		}
@@ -680,18 +682,18 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		if (ClipboardCopy.equals(actionType)) {
 			ClipboardService.showClipboardMenu(
-					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder);
+					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder, context);
 			return;
 		}
 
 		if (ClipboardCopyFiles.equals(actionType)) {
-			ClipboardService.copyFiles(getSelectedResourcesForEvent(selectedResources, focusedResource));
+			ClipboardService.copyFiles(getSelectedResourcesForEvent(selectedResources, focusedResource), context);
 			return;
 		}
 
 		if (ClipboardCopyFullPaths.equals(actionType)) {
 			ClipboardService.copyFullPaths(
-					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder);
+					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder, context);
 			return;
 		}
 		
@@ -757,7 +759,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		// Accept copy action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
 		if (AcceptCopy.equals(actionType)) {
-			new CopyService().copy(this.currentFolder, selectedResources, focusedResource, data, callback);
+			new CopyService().copy(this.currentFolder, selectedResources, focusedResource, data, callback, this.context);
 			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
 			return;
 		}
@@ -814,9 +816,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				.forEach(r -> {
 					try {
 						Helper.revealInFileManager(r.getPath());
+						SoundEvents.confirmation(context);
 					} catch (IOException e) {
 						log.error("Failed to reveal {} in file manager: {}", r.getFullPath(), e.getMessage(), e);
-						Alerts.showError("Failed to reveal in file manager", "<html>Could not reveal <b>\"" + r.getFullPath() + "\"</b> in the file manager.<br/>Error: " + e.getMessage() + "</html>");
+						Alerts.showError(context, "Failed to reveal in file manager", "<html>Could not reveal <b>\"" + r.getFullPath() + "\"</b> in the file manager.<br/>Error: " + e.getMessage() + "</html>");
 					}
 				});
 		}
@@ -829,7 +832,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	 * */
 	private void handleMakeNewFolder(Map<String, Object> data, NuclrPluginCallback callback) {
 
-		var createdPath = MakeNewFolderService.makeNewFolder(currentFolder, callback);
+		var createdPath = MakeNewFolderService.makeNewFolder(currentFolder, callback, context);
 		if (createdPath == null) {
 			return;
 		}
@@ -847,13 +850,16 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	private void handleDelete(Map<String, Object> data, List<NuclrResource> sources, boolean permanent, NuclrPluginCallback callback) {
 
 		// Plugin-rendered confirmation listing the full paths to be deleted.
-		if (!DeleteDialogs.confirmDelete(sources)) {
+		if (!DeleteDialogs.confirmDelete(sources, context)) {
 			return;
 		}
 
-		DeleteService.delete(sources, permanent, callback, (item, e) -> DeleteDialogs.error(item.getName(), e));
+		boolean deleted = DeleteService.delete(sources, permanent, callback, (item, e) -> DeleteDialogs.error(item.getName(), e, context));
 		
-		data.put("result.refresh", true);
+		if (deleted) {
+			SoundEvents.processComplete(context);
+			data.put("result.refresh", true);
+		}
 		
 	}
 
@@ -878,9 +884,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				.browser(navigator)
 				.pathParser(navigator)
 				.onSubmit(this::startFindSearch)
+				.pluginContext(context)
 				.build();
 
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+		SoundEvents.popup(context);
 		SwingUtilities.invokeLater(() -> new FindFileDialog(owner, findContext).setVisible(true));
 	}
 
@@ -903,11 +911,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		// Anchor to the main commander frame, not the (about-to-be-disposed) Find dialog,
 		// otherwise disposing the dialog would dispose the results window with it.
 		FindResultsWindow results = new FindResultsWindow(mainApplicationFrame(), request, this::navigateToResult,
-				hits -> openResultsInTempPanel(request, hits));
+				hits -> openResultsInTempPanel(request, hits), context);
 
 		FindFileService service = new FindFileService(this);
 		FindFileService.SearchHandle handle = service.search(request, results);
 		results.bind(service, handle);
+		SoundEvents.popup(context);
 		results.setVisible(true);
 	}
 

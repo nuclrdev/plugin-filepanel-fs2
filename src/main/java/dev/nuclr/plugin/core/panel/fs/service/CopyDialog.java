@@ -43,6 +43,8 @@ import javax.swing.JTextField;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -64,9 +66,14 @@ final class CopyDialog {
 	 * @return the chosen options, or {@code null} if the user cancelled
 	 */
 	static CopyOptions show(String header, Path defaultTarget) {
+		return show(header, defaultTarget, null);
+	}
+
+	static CopyOptions show(String header, Path defaultTarget, NuclrPluginContext context) {
 
 		final CopyOptions[] result = new CopyOptions[1];
 
+		SoundEvents.popup(context);
 		runOnEdtAndWait(() -> result[0] = build(header, defaultTarget));
 		return result[0];
 	}

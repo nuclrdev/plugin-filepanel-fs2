@@ -34,6 +34,8 @@ import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
+import dev.nuclr.platform.plugin.NuclrPluginContext;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -53,10 +55,15 @@ final class MoveProgressDialog {
 
 	/** Run {@code work} under a progress dialog, blocking until it completes. */
 	static void run(Consumer<NuclrPluginCallback> work) {
-		runOnEdtAndWait(() -> show(work));
+		run(work, null);
 	}
 
-	private static void show(Consumer<NuclrPluginCallback> work) {
+	/** Run {@code work} under a progress dialog, blocking until it completes. */
+	static void run(Consumer<NuclrPluginCallback> work, NuclrPluginContext context) {
+		runOnEdtAndWait(() -> show(work, context));
+	}
+
+	private static void show(Consumer<NuclrPluginCallback> work, NuclrPluginContext context) {
 
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
 
@@ -90,6 +97,7 @@ final class MoveProgressDialog {
 
 		cancelButton.addActionListener(e -> {
 			cancelled.set(true);
+			SoundEvents.cancel(context);
 			cancelButton.setEnabled(false);
 			itemLabel.setText("Cancelling…");
 		});
@@ -132,6 +140,7 @@ final class MoveProgressDialog {
 				work.accept(callback);
 			} catch (Throwable t) {
 				log.error("Move work failed: {}", t.getMessage(), t);
+				SoundEvents.error(context);
 			} finally {
 				SwingUtilities.invokeLater(() -> {
 					finished.set(true);
@@ -141,6 +150,7 @@ final class MoveProgressDialog {
 		});
 
 		// Modal: blocks here while pumping the EDT until the work thread disposes the dialog.
+		SoundEvents.popup(context);
 		dialog.setVisible(true);
 
 		if (!finished.get()) {

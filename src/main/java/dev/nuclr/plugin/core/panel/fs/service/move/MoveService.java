@@ -23,11 +23,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import dev.nuclr.plugin.core.panel.fs.FileNuclrResource;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,13 +62,13 @@ public class MoveService {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null) {
-			Alerts.showError(DialogTitle, "The destination is not a folder.");
+			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
 			return;
 		}
 
 		List<Path> sources = collectSources(selectedResources, focusedResource);
 		if (sources.isEmpty()) {
-			Alerts.showError(DialogTitle, "There is nothing to move.");
+			Alerts.showError(context, DialogTitle, "There is nothing to move.");
 			return;
 		}
 
@@ -76,8 +78,9 @@ public class MoveService {
 				? destination.resolve(sources.get(0).getFileName()).toString()
 				: destination.toString() + File.separator;
 
-		MoveOptions options = MoveDialog.show(header(sources), prefill);
+		MoveOptions options = MoveDialog.show(header(sources), prefill, context);
 		if (options == null) {
+			SoundEvents.cancel(context);
 			return; // cancelled
 		}
 		if (options.getDestination() == null) {
@@ -88,12 +91,21 @@ public class MoveService {
 		// destination path is used verbatim. Otherwise the destination is a folder to move into.
 		boolean explicitTarget = sources.size() == 1 && !Files.isDirectory(options.getDestination());
 
-		MoveConflictDialog conflictDialog = new MoveConflictDialog();
+		MoveConflictDialog conflictDialog = new MoveConflictDialog(context);
+		AtomicBoolean completed = new AtomicBoolean(false);
 
 		MoveProgressDialog.run(progress -> {
-			MoveEngine engine = new MoveEngine(options, progress, conflictDialog, (src, e) -> true, explicitTarget);
-			engine.move(sources);
-		});
+			MoveEngine engine = new MoveEngine(options, progress, conflictDialog, (src, e) -> {
+				SoundEvents.error(context);
+				return true;
+			}, explicitTarget);
+			completed.set(engine.move(sources));
+		}, context);
+
+		if (!completed.get()) {
+			return;
+		}
+		SoundEvents.processComplete(context);
 
 		// The destination pane is reloaded by the "refresh.plugin.file.panel" event the handling
 		// plugin emits for its own uuid. Unlike copy, a move also empties the source pane, so we

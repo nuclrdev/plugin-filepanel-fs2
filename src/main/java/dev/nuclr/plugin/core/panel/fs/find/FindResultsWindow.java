@@ -59,6 +59,8 @@ import com.formdev.flatlaf.extras.components.FlatButton;
 import com.formdev.flatlaf.extras.components.FlatLabel;
 
 import dev.nuclr.plugin.core.panel.fs.SystemOpen;
+import dev.nuclr.plugin.core.panel.fs.SoundEvents;
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.extern.slf4j.Slf4j;
 
@@ -87,16 +89,24 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 
 	/** Invoked when the user clicks "Panel": open all results in a temporary panel. */
 	private final transient Consumer<List<NuclrResource>> onSendToPanel;
+	private final transient NuclrPluginContext context;
 
 	private transient FindFileService service;
 	private transient FindFileService.SearchHandle handle;
 	private volatile boolean finished;
+	private volatile boolean cancellationEmitted;
 
 	public FindResultsWindow(Window owner, FindFileRequest request, Consumer<NuclrResource> onActivate,
 			Consumer<List<NuclrResource>> onSendToPanel) {
+		this(owner, request, onActivate, onSendToPanel, null);
+	}
+
+	public FindResultsWindow(Window owner, FindFileRequest request, Consumer<NuclrResource> onActivate,
+			Consumer<List<NuclrResource>> onSendToPanel, NuclrPluginContext context) {
 		super(owner, "Find results — " + request.getNamePattern(), ModalityType.MODELESS);
 		this.onActivate = onActivate;
 		this.onSendToPanel = onSendToPanel;
+		this.context = context;
 
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
@@ -200,6 +210,11 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		if (service != null) {
 			service.close();
 		}
+		if (cancelled) {
+			emitCancelOnce();
+		} else {
+			SoundEvents.processComplete(context);
+		}
 	}
 
 	@Override
@@ -219,7 +234,8 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 	}
 
 	private void stopSearch() {
-		if (handle != null) {
+		if (handle != null && !finished && !handle.isCancelled()) {
+			emitCancelOnce();
 			handle.cancel();
 		}
 	}
@@ -231,9 +247,11 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		if (handle.isPaused()) {
 			handle.resume();
 			pauseButton.setText("Pause");
+			SoundEvents.confirmation(context);
 		} else {
 			handle.pause();
 			pauseButton.setText("Resume");
+			SoundEvents.warning(context);
 		}
 		refreshStatus(model.getSize(), -1, false);
 	}
@@ -272,6 +290,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		}
 		list.setSelectedIndex(index);
 		NuclrResource resource = model.getElementAt(index);
+		SoundEvents.popup(context);
 		buildContextMenu(resource).show(list, e.getX(), e.getY());
 	}
 
@@ -306,6 +325,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		}
 		try {
 			SystemOpen.open(path);
+			SoundEvents.confirmation(context);
 		} catch (Exception ex) {
 			showError("Could not open " + resource.getName(), ex);
 		}
@@ -318,6 +338,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		}
 		try {
 			SystemOpen.reveal(path);
+			SoundEvents.confirmation(context);
 		} catch (Exception ex) {
 			showError("Could not reveal " + resource.getName(), ex);
 		}
@@ -349,15 +370,25 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		try {
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
 			clipboard.setContents(contents, null);
+			SoundEvents.confirmation(context);
 		} catch (RuntimeException ex) {
 			log.warn("Failed to set clipboard contents: {}", ex.getMessage());
+			SoundEvents.error(context);
 		}
 	}
 
 	private void showError(String message, Exception ex) {
 		log.warn("{}: {}", message, ex.getMessage());
+		SoundEvents.error(context);
 		JOptionPane.showMessageDialog(this, message + "\n" + ex.getMessage(), "Find results",
 				JOptionPane.WARNING_MESSAGE);
+	}
+
+	private void emitCancelOnce() {
+		if (!cancellationEmitted) {
+			cancellationEmitted = true;
+			SoundEvents.cancel(context);
+		}
 	}
 
 	private static DefaultListCellRenderer pathRenderer() {

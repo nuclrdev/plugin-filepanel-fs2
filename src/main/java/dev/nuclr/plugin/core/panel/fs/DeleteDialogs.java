@@ -37,6 +37,7 @@ import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
+import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,6 +58,11 @@ final class DeleteDialogs {
 
 	/** @return true if the user confirmed (OK), false on Cancel/ESC. */
 	static boolean confirmDelete(List<NuclrResource> sources) {
+		return confirmDelete(sources, null);
+	}
+
+	/** @return true if the user confirmed (OK), false on Cancel/ESC. */
+	static boolean confirmDelete(List<NuclrResource> sources, NuclrPluginContext context) {
 
 		boolean single = sources.size() <= 1;
 		String header;
@@ -73,7 +79,12 @@ final class DeleteDialogs {
 		}
 
 		Component message = buildText(sb.toString().stripTrailing(), !single);
-		return choose(TITLE, message, "OK", "Cancel");
+		SoundEvents.warning(context);
+		boolean proceed = choose(TITLE, message, "OK", "Cancel");
+		if (!proceed) {
+			SoundEvents.cancel(context);
+		}
+		return proceed;
 	}
 
 	private static String fullPath(NuclrResource r) {
@@ -85,10 +96,20 @@ final class DeleteDialogs {
 
 	/** @return true to Skip (continue with the next item), false to Abort the operation. */
 	static boolean error(String name, Exception e) {
+		return error(name, e, null);
+	}
+
+	/** @return true to Skip (continue with the next item), false to Abort the operation. */
+	static boolean error(String name, Exception e, NuclrPluginContext context) {
 
 		String detail = e == null || e.getMessage() == null ? "Could not delete the object." : e.getMessage();
 		Component message = buildText("Failed to delete:\n" + name + "\n\n" + detail, false);
-		return choose(TITLE, message, "Skip", "Abort");
+		SoundEvents.error(context);
+		boolean skip = choose(TITLE, message, "Skip", "Abort");
+		if (!skip) {
+			SoundEvents.cancel(context);
+		}
+		return skip;
 	}
 
 	private static Component buildText(String text, boolean scroll) {
