@@ -128,7 +128,6 @@ public final class ClipboardService {
 				Math.max(0, (screen.width - menu.width) / 2),
 				Math.max(0, (screen.height - menu.height) / 2));
 		SwingUtilities.convertPointFromScreen(location, invoker);
-		SoundEvents.popup(context);
 		popup.show(invoker, location.x, location.y);
 	}
 

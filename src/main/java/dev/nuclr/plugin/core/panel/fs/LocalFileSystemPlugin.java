@@ -916,7 +916,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		FindFileService service = new FindFileService(this);
 		FindFileService.SearchHandle handle = service.search(request, results);
 		results.bind(service, handle);
-		SoundEvents.popup(context);
 		results.setVisible(true);
 	}
 

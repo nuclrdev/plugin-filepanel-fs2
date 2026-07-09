@@ -290,7 +290,6 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		}
 		list.setSelectedIndex(index);
 		NuclrResource resource = model.getElementAt(index);
-		SoundEvents.popup(context);
 		buildContextMenu(resource).show(list, e.getX(), e.getY());
 	}
 
