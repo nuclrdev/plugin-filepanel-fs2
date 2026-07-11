@@ -65,12 +65,15 @@ class FileNuclrResourceTest {
 	}
 
 	@Test
-	void directory_isFolderWithZeroLengthAndBlankSizeLabel(@TempDir Path dir) {
-		FileNuclrResource r = new FileNuclrResource(ctx, dir);
+	void directory_isFolderWithZeroLengthAndBlankSizeAndExtensionLabels(@TempDir Path dir) throws Exception {
+		Path dotted = Files.createDirectory(dir.resolve("release.v1"));
+
+		FileNuclrResource r = new FileNuclrResource(ctx, dotted);
 
 		assertTrue(r.isFolder());
 		assertEquals(0L, r.getLength());
 		assertEquals("", r.getMetadata().get("Size"));
+		assertEquals("", r.getMetadata().get("Extension"));
 	}
 
 	@Test

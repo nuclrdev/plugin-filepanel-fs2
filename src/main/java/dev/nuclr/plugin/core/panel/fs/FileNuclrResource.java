@@ -92,7 +92,7 @@ public final class FileNuclrResource extends NuclrResource {
 		populateAttributes(path);
 
 		this.getMetadata().put("Name", this.getName());
-		this.getMetadata().put("Extension", extensionOf(this.getName()));
+		this.getMetadata().put("Extension", isFolder() ? "" : extensionOf(this.getName()));
 
 		if (isFolder()) {
 			if (getName().equals("..")) {
