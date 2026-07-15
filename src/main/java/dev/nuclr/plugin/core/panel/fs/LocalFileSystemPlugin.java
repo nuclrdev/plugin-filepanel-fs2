@@ -244,6 +244,15 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return null;
 		}
 
+		// Only ever browse the real local filesystem. A path on a mounted provider (an SFTP
+		// server, a zip archive) also answers Files.isDirectory() truthfully, so without this
+		// guard this plugin would happily claim a remote folder — and then a later cross-panel
+		// move would resolve a local name against a remote path and throw
+		// ProviderMismatchException. Those belong to filepanel-net / filepanel-zip.
+		if (!isLocalFileSystem(path)) {
+			return null;
+		}
+
 		// Follow Windows junctions / symlinks (e.g. C:\Documents and Settings ->
 		// C:\Users) to their real target so the contents can be listed and the panel
 		// reflects the resolved location.
@@ -538,8 +547,16 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public boolean supports(NuclrResource resource) {
 
 		var path = resource.getPath();
-		
+
 		if (path == null) {
+			return false;
+		}
+
+		// Claim only the real local filesystem — never a mounted SFTP server or zip archive, whose
+		// paths also pass the Files.isDirectory()/isReadable() checks below. Letting this plugin own
+		// a remote folder is what lets a local→remote move be mis-dispatched as a local-to-local one
+		// (see openResource); filepanel-net / filepanel-zip own those.
+		if (!isLocalFileSystem(path)) {
 			return false;
 		}
 
@@ -554,6 +571,33 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		return Files.exists(effective) && Files.isDirectory(effective) && Files.isReadable(effective);
 
+	}
+
+	/**
+	 * Whether {@code path} belongs to the real local filesystem, as opposed to a mounted provider
+	 * (an SFTP server via filepanel-net, a zip archive via filepanel-zip). This plugin browses only
+	 * the former; the distinction matters because {@code Files} queries succeed on the latter too, so
+	 * it is the only thing that stops this plugin from claiming — and then mishandling — a folder it
+	 * has no business owning.
+	 */
+	private static boolean isLocalFileSystem(Path path) {
+		return path != null && path.getFileSystem() == FileSystems.getDefault();
+	}
+
+	/**
+	 * Whether {@code other} is a distinct panel whose current folder is a real local directory this
+	 * plugin's local-only move engine can move files into — the one case where F6 is a cross-panel
+	 * move rather than an in-place rename. False for this same panel, a quick-view pane, or an
+	 * opposite panel on a non-local filesystem (an SFTP server, a mounted zip), whose folder
+	 * {@link MoveService} cannot target with {@code Files.move}.
+	 */
+	private boolean hasLocalMoveTarget(BaseNuclrPlugin other) {
+		if (other == null || other.uuid().equals(this.uuid()) || other.is(BaseNuclrPlugin.Type.QuickView)) {
+			return false;
+		}
+		NuclrResource folder = other.getCurrentResource();
+		Path path = folder != null ? folder.getPath() : null;
+		return isLocalFileSystem(path);
 	}
 
 	/**
@@ -770,30 +814,21 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 			log.warn("Move action: " + getSelectedResourcesForEvent(selectedResources, focusedResource));
 
-			if (other == null || other.uuid().equals(this.uuid())) {
-				log.warn("Move to itself (rename)");
-				this.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
-				return;
-			}
-
-			if (other != null && other.id().equals(LocalFileSystemPlugin.PluginId)) {
-				log.warn("Move to another instance of FS plugin");
+			// F6 moves the selection into the opposite panel's folder — but only when that folder is
+			// a real local directory this (local-only) move engine can target. When the opposite
+			// panel shows a different filesystem (an SFTP server via filepanel-net, a mounted zip),
+			// or is this same panel / a quick-view pane, there is no local move target: F6 is an
+			// in-place rename instead, opening the dialog on this panel's own folder so the user can
+			// edit just the name. Moving a local file onto a remote server is a transfer (F5 copy),
+			// not a rename, so it is deliberately not attempted here.
+			if (hasLocalMoveTarget(other)) {
+				log.warn("Move into opposite local panel");
 				other.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
-				return;
-			}
-
-			if (other!=null && other.is(BaseNuclrPlugin.Type.QuickView)) {
-				log.warn("Move to itself (rename)");
+			} else {
+				log.warn("Rename in place");
 				this.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
-				return;
 			}
-
-			if (other != null) {
-				log.warn("Move to another plugin: " + other.name());
-				other.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
-				return;
-			}
-
+			return;
 		}
 		
 		// Accept move action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
