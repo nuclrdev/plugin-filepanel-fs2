@@ -199,6 +199,25 @@ public final class ClipboardService {
 		emitClipboardResult(setClipboardContents(new FileListTransferable(files)), context);
 	}
 
+	/**
+	 * Read text from the system clipboard, returning {@code null} when text is not
+	 * available or the clipboard cannot currently be accessed.
+	 */
+	public static String readText() {
+		try {
+			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+			Transferable contents = clipboard.getContents(null);
+			if (contents == null || !contents.isDataFlavorSupported(DataFlavor.stringFlavor)) {
+				return null;
+			}
+			Object value = contents.getTransferData(DataFlavor.stringFlavor);
+			return value instanceof String text ? text : null;
+		} catch (java.io.IOException | UnsupportedFlavorException | RuntimeException e) {
+			log.debug("Failed to read text from the clipboard: {}", e.getMessage());
+			return null;
+		}
+	}
+
 	private static boolean setClipboardContents(Transferable contents) {
 		try {
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();

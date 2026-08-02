@@ -454,6 +454,35 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
+	void clipboardPasteText_opensAnExistingFolder(@TempDir Path dir) {
+		LocalFileSystemPlugin p = newPlugin();
+		Path folder = dir.resolve("pasted folder");
+		assertDoesNotThrow(() -> Files.createDirectory(folder));
+
+		p.processClipboardPasteText("  \"" + folder + "\"  ");
+
+		var opened = ctx.eventBus.emissionsOfType("filepanel.path.opened");
+		assertEquals(1, opened.size());
+		assertSame(p, opened.get(0).source);
+		assertEquals(folder.toAbsolutePath().normalize(),
+				((NuclrResource) opened.get(0).event.get("resource")).getPath());
+	}
+
+	@Test
+	void clipboardPasteText_ignoresNonFoldersAndInvalidText(@TempDir Path dir) throws IOException {
+		LocalFileSystemPlugin p = newPlugin();
+		Path file = Files.writeString(dir.resolve("file.txt"), "not a folder");
+
+		p.processClipboardPasteText(file.toString());
+		p.processClipboardPasteText(dir.resolve("missing").toString());
+		p.processClipboardPasteText("\0invalid");
+		p.processClipboardPasteText("   ");
+		p.processClipboardPasteText(null);
+
+		assertTrue(ctx.eventBus.emissionsOfType("filepanel.path.opened").isEmpty());
+	}
+
+	@Test
 	void handleMessage_isInert() {
 		LocalFileSystemPlugin p = newPlugin();
 		assertDoesNotThrow(() -> p.handleMessage(null, "whatever", new HashMap<>(), null));

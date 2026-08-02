@@ -843,7 +843,36 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	private void processClipboardPaste() {
-		// Intentionally empty until local-filesystem paste behaviour is implemented.
+		processClipboardPasteText(ClipboardService.readText());
+	}
+
+	void processClipboardPasteText(String clipboardText) {
+		if (clipboardText == null) {
+			return;
+		}
+
+		String pathText = clipboardText.strip();
+		if (pathText.length() >= 2 && pathText.startsWith("\"") && pathText.endsWith("\"")) {
+			pathText = pathText.substring(1, pathText.length() - 1).strip();
+		}
+		if (pathText.isEmpty()) {
+			return;
+		}
+
+		try {
+			Path path = Path.of(pathText);
+			if (!Files.isDirectory(path)) {
+				return;
+			}
+
+			Path folder = path.toAbsolutePath().normalize();
+			context.getEventBus().emit(this, "filepanel.path.opened",
+					Map.of("resource", Helper.build(context, folder)));
+		} catch (RuntimeException e) {
+			// Do not log clipboard text: paths can contain private user information.
+			log.debug("Ignoring clipboard text that is not a valid local folder ({})",
+					e.getClass().getSimpleName());
+		}
 	}
 
 	private void handleRevealInFileManager(Map<String, Object> data, List<NuclrResource> selectedResourcesForEvent,
