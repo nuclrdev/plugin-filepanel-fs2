@@ -23,6 +23,9 @@ final class PluginActions {
 	/** Host-dispatched Ctrl+C action. Must match Commander's action protocol value. */
 	static final String CLIPBOARD_COPY = "clipboard.copy";
 
+	/** Host-dispatched paste action. Must match Commander's action protocol value. */
+	static final String CLIPBOARD_PASTE = "clipboard.paste";
+
 	/** Context-menu action that copies local files using the platform file-list flavour. */
 	static final String CLIPBOARD_COPY_FILES = "clipboard.copy.files";
 

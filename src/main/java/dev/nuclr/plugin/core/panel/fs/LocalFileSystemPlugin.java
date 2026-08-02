@@ -726,6 +726,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
+		if (PluginActions.CLIPBOARD_PASTE.equals(actionType)) {
+			processClipboardPaste();
+			return;
+		}
+
 		if (PluginActions.CLIPBOARD_COPY_FILES.equals(actionType)) {
 			ClipboardService.copyFiles(getSelectedResourcesForEvent(selectedResources, focusedResource), context);
 			return;
@@ -835,6 +840,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 		
 
+	}
+
+	private void processClipboardPaste() {
+		// Intentionally empty until local-filesystem paste behaviour is implemented.
 	}
 
 	private void handleRevealInFileManager(Map<String, Object> data, List<NuclrResource> selectedResourcesForEvent,
