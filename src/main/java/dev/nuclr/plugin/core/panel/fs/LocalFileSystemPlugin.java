@@ -50,10 +50,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	private static final String AcceptCopy = "accept.copy";
 	private static final String AcceptMove = "accept.move";
-	private static final String ClipboardCopy = "clipboard.copy";
-	private static final String ClipboardCopyFiles = "clipboard.copy.files";
-	private static final String ClipboardCopyFullPaths = "clipboard.copy.fullPaths";
-
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
 	private static final String GO_TO_PATH_SHORTCUT = IS_MAC ? "Shift+Cmd+G" : "Ctrl+Shift+G";
@@ -724,18 +720,18 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
-		if (ClipboardCopy.equals(actionType)) {
+		if (PluginActions.CLIPBOARD_COPY.equals(actionType)) {
 			ClipboardService.showClipboardMenu(
 					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder, context);
 			return;
 		}
 
-		if (ClipboardCopyFiles.equals(actionType)) {
+		if (PluginActions.CLIPBOARD_COPY_FILES.equals(actionType)) {
 			ClipboardService.copyFiles(getSelectedResourcesForEvent(selectedResources, focusedResource), context);
 			return;
 		}
 
-		if (ClipboardCopyFullPaths.equals(actionType)) {
+		if (PluginActions.CLIPBOARD_COPY_FULL_PATHS.equals(actionType)) {
 			ClipboardService.copyFullPaths(
 					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder, context);
 			return;
@@ -1006,8 +1002,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			NuclrContextMenuItem.builder().label("Open").actionType("filepanel.path.opened").build(),
 			NuclrContextMenuItem.builder().label("Reveal in File Manager").actionType("filepanel.path.open.in.explorer").build(),
 			NuclrContextMenuItem.builder().separator(true).build(),
-			NuclrContextMenuItem.builder().label("Copy file(s)").actionType(ClipboardCopyFiles).build(),
-			NuclrContextMenuItem.builder().label("Copy full path(s)").actionType(ClipboardCopyFullPaths).build(),
+			NuclrContextMenuItem.builder().label("Copy file(s)").actionType(PluginActions.CLIPBOARD_COPY_FILES).build(),
+			NuclrContextMenuItem.builder().label("Copy full path(s)").actionType(PluginActions.CLIPBOARD_COPY_FULL_PATHS).build(),
 			NuclrContextMenuItem.builder().separator(true).build(),
 			NuclrContextMenuItem.builder().label("Delete").actionType("filepanel.delete").build()
 		);
