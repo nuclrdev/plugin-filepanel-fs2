@@ -469,11 +469,32 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
-	void clipboardPasteText_ignoresNonFoldersAndInvalidText(@TempDir Path dir) throws IOException {
-		LocalFileSystemPlugin p = newPlugin();
-		Path file = Files.writeString(dir.resolve("file.txt"), "not a folder");
+	void clipboardPasteText_copiesAnExistingFile(@TempDir Path dir) throws IOException {
+		class RecordingPastePlugin extends LocalFileSystemPlugin {
+			private List<Path> pastedFiles = List.of();
 
-		p.processClipboardPasteText(file.toString());
+			@Override
+			void processClipboardPasteFiles(List<Path> clipboardFiles) {
+				pastedFiles = List.copyOf(clipboardFiles);
+			}
+		}
+
+		ctx = new FakeContext();
+		RecordingPastePlugin p = new RecordingPastePlugin();
+		p.preinit(ctx);
+		p.init();
+		Path file = Files.writeString(dir.resolve("file.txt"), "clipboard file");
+
+		p.processClipboardPasteText("  \"" + file + "\"  ");
+
+		assertEquals(List.of(file), p.pastedFiles);
+		assertTrue(ctx.eventBus.emissionsOfType("filepanel.path.opened").isEmpty());
+	}
+
+	@Test
+	void clipboardPasteText_ignoresMissingPathsAndInvalidText(@TempDir Path dir) {
+		LocalFileSystemPlugin p = newPlugin();
+
 		p.processClipboardPasteText(dir.resolve("missing").toString());
 		p.processClipboardPasteText("\0invalid");
 		p.processClipboardPasteText("   ");

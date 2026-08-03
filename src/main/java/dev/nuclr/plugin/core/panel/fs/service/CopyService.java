@@ -28,6 +28,8 @@ import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
 import dev.nuclr.plugin.core.panel.fs.SoundEvents;
+import dev.nuclr.plugin.core.panel.fs.service.CopyEngine.Action;
+import dev.nuclr.plugin.core.panel.fs.service.CopyEngine.Resolution;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -98,6 +100,73 @@ public class CopyService {
 		// handling plugin emits for its own uuid. We deliberately do NOT set "result.refresh"
 		// here: that flag is consumed by the pane that *initiated* the copy (the source), which
 		// would needlessly reload it and reset its cursor to "..".
+	}
+
+	/**
+	 * Copy regular files received from the system clipboard directly into the
+	 * panel's current directory. Unlike F5 copy, paste does not show the
+	 * destination setup dialog; existing-target conflicts still use the normal
+	 * conflict prompt and the transfer remains cancellable.
+	 *
+	 * @return {@code true} when a copy run completed, {@code false} when there
+	 *         was nothing valid to copy or the operation was cancelled
+	 */
+	public boolean pasteFiles(NuclrResource currentFolder, List<Path> clipboardPaths,
+			NuclrPluginContext context) {
+
+		Path destination = currentFolder != null ? currentFolder.getPath() : null;
+		if (destination == null || !Files.isDirectory(destination)) {
+			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
+			return false;
+		}
+
+		List<Path> sources = regularFiles(clipboardPaths);
+		if (sources.isEmpty()) {
+			return false;
+		}
+
+		CopyOptions options = new CopyOptions();
+		options.setDestination(destination);
+		options.setConflictMode(CopyOptions.ConflictMode.ASK);
+
+		CopyConflictDialog conflictDialog = new CopyConflictDialog(context);
+		AtomicBoolean completed = new AtomicBoolean(false);
+
+		CopyProgressDialog.run(progress -> {
+			CopyEngine.ConflictResolver resolver = (source, target) -> isSameFile(source, target)
+					? Resolution.of(Action.RENAME)
+					: conflictDialog.resolve(source, target);
+			CopyEngine engine = new CopyEngine(options, progress, resolver, (src, e) -> {
+				SoundEvents.error(context);
+				return true;
+			});
+			completed.set(engine.copy(sources));
+		}, context);
+
+		if (completed.get()) {
+			SoundEvents.processComplete(context);
+		}
+		return completed.get();
+	}
+
+	/** Return normalized, distinct regular files from an untrusted clipboard path list. */
+	public static List<Path> regularFiles(List<Path> paths) {
+		if (paths == null || paths.isEmpty()) {
+			return List.of();
+		}
+		return paths.stream()
+				.filter(path -> path != null && Files.isRegularFile(path))
+				.map(path -> path.toAbsolutePath().normalize())
+				.distinct()
+				.toList();
+	}
+
+	private static boolean isSameFile(Path source, Path target) {
+		try {
+			return Files.isSameFile(source, target);
+		} catch (java.io.IOException e) {
+			return source.toAbsolutePath().normalize().equals(target.toAbsolutePath().normalize());
+		}
 	}
 
 	/** Resolve the resources to act on: marked selection if present, otherwise the cursor item. */

@@ -218,6 +218,37 @@ public final class ClipboardService {
 		}
 	}
 
+	/**
+	 * Read local files from the system clipboard's native file-list flavor.
+	 * Unsupported entries are ignored and clipboard failures produce an empty
+	 * list. Paths are never logged because they may contain private information.
+	 */
+	public static List<Path> readFiles() {
+		try {
+			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+			Transferable contents = clipboard.getContents(null);
+			if (contents == null || !contents.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+				return List.of();
+			}
+
+			Object value = contents.getTransferData(DataFlavor.javaFileListFlavor);
+			if (!(value instanceof List<?> entries)) {
+				return List.of();
+			}
+
+			List<Path> paths = new ArrayList<>();
+			for (Object entry : entries) {
+				if (entry instanceof File file) {
+					paths.add(file.toPath());
+				}
+			}
+			return List.copyOf(paths);
+		} catch (java.io.IOException | UnsupportedFlavorException | RuntimeException e) {
+			log.debug("Failed to read files from the clipboard: {}", e.getClass().getSimpleName());
+			return List.of();
+		}
+	}
+
 	private static boolean setClipboardContents(Transferable contents) {
 		try {
 			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();

@@ -843,6 +843,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	private void processClipboardPaste() {
+		List<Path> clipboardFiles = CopyService.regularFiles(ClipboardService.readFiles());
+		if (!clipboardFiles.isEmpty()) {
+			processClipboardPasteFiles(clipboardFiles);
+			return;
+		}
 		processClipboardPasteText(ClipboardService.readText());
 	}
 
@@ -861,17 +866,24 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		try {
 			Path path = Path.of(pathText);
-			if (!Files.isDirectory(path)) {
-				return;
+			if (Files.isDirectory(path)) {
+				Path folder = path.toAbsolutePath().normalize();
+				context.getEventBus().emit(this, "filepanel.path.opened",
+						Map.of("resource", Helper.build(context, folder)));
+			} else if (Files.isRegularFile(path)) {
+				processClipboardPasteFiles(List.of(path));
 			}
-
-			Path folder = path.toAbsolutePath().normalize();
-			context.getEventBus().emit(this, "filepanel.path.opened",
-					Map.of("resource", Helper.build(context, folder)));
 		} catch (RuntimeException e) {
 			// Do not log clipboard text: paths can contain private user information.
-			log.debug("Ignoring clipboard text that is not a valid local folder ({})",
+			log.debug("Ignoring clipboard text that is not a valid local path ({})",
 					e.getClass().getSimpleName());
+		}
+	}
+
+	void processClipboardPasteFiles(List<Path> clipboardFiles) {
+		if (new CopyService().pasteFiles(this.currentFolder, clipboardFiles, this.context)) {
+			this.context.getEventBus().emit("refresh.plugin.file.panel",
+					Map.of("plugin.uuid", this.uuid()), null);
 		}
 	}
 
