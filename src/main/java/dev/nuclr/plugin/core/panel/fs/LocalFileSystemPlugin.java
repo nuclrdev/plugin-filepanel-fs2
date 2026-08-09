@@ -558,7 +558,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 		var effective = resolveReparseTarget(path);
 		
-		// If a director and not readable, show a warning message, don't open the folder
+		// Capability detection is allowed to run off Swing's event-dispatch thread and
+		// must remain side-effect free. The host owns any access-denied presentation.
 		if (Files.isDirectory(effective) && false == Files.isReadable(effective)) {
 			log.warn("Directory {} is not readable", effective);
 			Alerts.showError(context, "Directory is not readable", "<html>The directory <b>\"" + effective.toAbsolutePath() + "\"</b> cannot be opened because it is not readable.<br/>Please check the permissions and try again.</html>");
