@@ -149,8 +149,12 @@ class LocalFileSystemPluginTest {
 		Path file = dir.resolve("a.txt");
 		Files.writeString(file, "x");
 
-		List<NuclrMenuResource> forDir = p.menuItems(new TestResource(dir));
-		List<NuclrMenuResource> forFile = p.menuItems(new TestResource(file));
+		// Built the way the panel builds its entries: menuItems() runs on the EDT (the sort
+		// header renderer asks for it during layout), so it reads the attributes the entry
+		// already carries instead of stat-ing the path. A bare path-only stub would not
+		// describe a real listing entry.
+		List<NuclrMenuResource> forDir = p.menuItems(Helper.build(ctx, dir));
+		List<NuclrMenuResource> forFile = p.menuItems(Helper.build(ctx, file));
 
 		assertEquals("Move", labelFor(forDir, "F6"));
 		assertEquals("Rename/Move", labelFor(forFile, "F6"));
@@ -299,7 +303,9 @@ class LocalFileSystemPluginTest {
 		Path file = dir.resolve("doc.txt");
 		Files.write(file, new byte[] { 1, 2, 3, 4, 5 });
 
-		String summary = p.getSelectionSummaryText(List.of(new TestResource(file)));
+		// As with menuItems(), the summary reads the entry's own attributes rather than
+		// re-stat-ing it, so the resource has to be a real listing entry.
+		String summary = p.getSelectionSummaryText(List.of(Helper.build(ctx, file)));
 		assertEquals("doc.txt  |  " + FileUtils.byteCountToDisplaySize(5), summary);
 	}
 
@@ -321,7 +327,7 @@ class LocalFileSystemPluginTest {
 		Files.createDirectory(sub);
 
 		String summary = p.getSelectionSummaryText(
-				List.of(new TestResource(f1), new TestResource(f2), new TestResource(sub)));
+				List.of(Helper.build(ctx, f1), Helper.build(ctx, f2), Helper.build(ctx, sub)));
 
 		assertEquals("Bytes: " + FileUtils.byteCountToDisplaySize(7) + ",  files: 2,  folders: 1", summary);
 	}

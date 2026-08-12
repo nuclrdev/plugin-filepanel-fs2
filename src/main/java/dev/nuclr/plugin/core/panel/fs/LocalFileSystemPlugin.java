@@ -148,12 +148,24 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		return Path.of("/");
 	}
 
+	/**
+	 * The function-key items for {@code source}.
+	 *
+	 * <p>This must never touch the filesystem. The host calls it while painting the panel
+	 * (the sort-arrow header renderer asks for these items to work out which column carries
+	 * the arrow) and again on every cursor move, so one stat here runs on the EDT — and on a
+	 * sleeping HDD that stat is the whole spin-up, several seconds during which nothing
+	 * paints and even the "Loading resources..." indicator cannot appear. Read the flag the
+	 * entry already carries instead: {@link FileNuclrResource} fills {@code folder} in when
+	 * the entry is built, off the EDT, from the single attribute read the listing already
+	 * performs.
+	 */
 	@Override
 	public List<NuclrMenuResource> menuItems(NuclrResource source) {
 
 		var items = new ArrayList<NuclrMenuResource>();
 
-		boolean isDirectory = source != null && source.getPath() != null && Files.isDirectory(source.getPath());
+		boolean isDirectory = source != null && source.isFolder();
 
 		addDefaultMenuItems(items, isDirectory);
 		addAltMenuItems(items);
@@ -412,6 +424,15 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		return this.currentFolder != null ? this.currentFolder.getPath() : null;
 	}
 
+	/**
+	 * The status line under the panel.
+	 *
+	 * <p>Like {@link #menuItems}, this runs on the EDT — the host refreshes it on every
+	 * cursor move and every mark change — so it answers from the attributes each entry
+	 * already carries rather than re-stat-ing the files. Re-reading them here cost one
+	 * filesystem round trip per keystroke (and one per marked file when several are
+	 * marked), which is what made a slow or sleeping drive stall the whole window.
+	 */
 	@Override
 	public String getSelectionSummaryText(List<NuclrResource> selectedResources) {
 		if (selectedResources == null || selectedResources.isEmpty()) {
@@ -420,8 +441,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		if (selectedResources.size() == 1) {
 			var resource = selectedResources.get(0);
 			Path path = resource.getPath();
-			boolean directory = path != null && Files.isDirectory(path);
-			boolean link = isLink(path);
+			boolean directory = resource.isFolder();
+			boolean link = resource.isLink();
 			String type = link ? "Link" : (directory ? "Folder" : humanReadableSize(sizeBytes(resource, directory)));
 			String name = resource.getName() != null && !resource.getName().isBlank() ? resource.getName()
 					: path == null ? "" : path.getFileName() == null ? path.toString() : path.getFileName().toString();
@@ -431,8 +452,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		int fileCount = 0;
 		int folderCount = 0;
 		for (var resource : selectedResources) {
-			Path path = resource.getPath();
-			if (path != null && Files.isDirectory(path)) {
+			if (resource.isFolder()) {
 				folderCount++;
 			} else {
 				fileCount++;
@@ -446,20 +466,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		if (resource == null || directory) {
 			return 0L;
 		}
-		Path path = resource.getPath();
-		if (path != null) {
-			try {
-				return Files.size(path);
-			} catch (IOException ignored) {
-				// Fall back to the resource payload below.
-			}
-		}
-
-		return 0L;
-	}
-
-	private static boolean isLink(Path path) {
-		return path != null && Files.isSymbolicLink(path);
+		return resource.getLength();
 	}
 
 	private static String humanReadableSize(long sizeBytes) {
@@ -562,7 +569,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		// must remain side-effect free. The host owns any access-denied presentation.
 		if (Files.isDirectory(effective) && false == Files.isReadable(effective)) {
 			log.warn("Directory {} is not readable", effective);
-			Alerts.showError(context, "Directory is not readable", "<html>The directory <b>\"" + effective.toAbsolutePath() + "\"</b> cannot be opened because it is not readable.<br/>Please check the permissions and try again.</html>");
 			return false;
 		}
 
