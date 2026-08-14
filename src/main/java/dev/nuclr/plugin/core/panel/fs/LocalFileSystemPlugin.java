@@ -51,6 +51,15 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	private static final String AcceptCopy = "accept.copy";
 	private static final String AcceptMove = "accept.move";
+
+	/**
+	 * Mirrors the commander's {@code Events.FilePanelOpenExternalKey} (that class is not on the
+	 * SDK classpath, so the string is duplicated here, as filepanel-net already does for its own
+	 * event names). Set on a {@code filepanel.path.opened} payload when the user pressed
+	 * Shift+Enter, asking for the entry to be run in its own console window rather than in the
+	 * commander's embedded one.
+	 */
+	private static final String OpenExternalKey = "filePanelOpenExternal";
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
 	private static final String GO_TO_PATH_SHORTCUT = IS_MAC ? "Shift+Cmd+G" : "Ctrl+Shift+G";
@@ -636,11 +645,20 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 
 		if ("filepanel.path.opened".equals(actionType)) {
- 			log.warn("Open action: " +  getSelectedResourcesForEvent(selectedResources, focusedResource).get(0));
- 		try {
-				SystemOpen.open(getSelectedResourcesForEvent(selectedResources, focusedResource).get(0).getPath());
+			var opened = getSelectedResourcesForEvent(selectedResources, focusedResource).get(0);
+			log.info("Open action: {}", opened);
+			boolean external = Boolean.TRUE.equals(data == null ? null : data.get(OpenExternalKey));
+			try {
+				if (external) {
+					// Shift+Enter: run it in its own console window instead of handing it to the
+					// OS file association, which for a .bat would open an editor rather than run it.
+					ExternalConsole.run(opened.getPath());
+				} else {
+					SystemOpen.open(opened.getPath());
+				}
 				SoundEvents.confirmation(context);
-			} catch (IOException e) {
+			} catch (IOException | RuntimeException e) {
+				log.warn("Could not open {}{}", opened.getPath(), external ? " in a new console" : "", e);
 				SoundEvents.error(context);
 			}
 			return;
