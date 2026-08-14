@@ -43,12 +43,10 @@ public final class RecordingFilePanelPlugin implements FilePanelNuclrPlugin {
 		}
 	}
 
-	private final String id;
 	private final String uuid;
 	public final List<ActCall> actCalls = new ArrayList<>();
 
-	public RecordingFilePanelPlugin(String id, String uuid) {
-		this.id = id;
+	public RecordingFilePanelPlugin(String uuid) {
 		this.uuid = uuid;
 	}
 
@@ -60,60 +58,12 @@ public final class RecordingFilePanelPlugin implements FilePanelNuclrPlugin {
 
 	// --- identity used by the delegation logic ---
 	@Override
-	public String id() {
-		return id;
-	}
-
-	@Override
 	public String uuid() {
 		return uuid;
 	}
 
 	// --- remaining contract: inert stubs ---
-	@Override
-	public String name() {
-		return "Recording Plugin";
-	}
 
-	@Override
-	public String version() {
-		return "0.0.0";
-	}
-
-	@Override
-	public String description() {
-		return "test";
-	}
-
-	@Override
-	public String author() {
-		return "test";
-	}
-
-	@Override
-	public String license() {
-		return "Apache-2.0";
-	}
-
-	@Override
-	public String website() {
-		return null;
-	}
-
-	@Override
-	public String pageUrl() {
-		return null;
-	}
-
-	@Override
-	public String docUrl() {
-		return null;
-	}
-
-	@Override
-	public Developer developer() {
-		return Developer.Community;
-	}
 
 	@Override
 	public boolean onFocusGained() {

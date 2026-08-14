@@ -31,6 +31,7 @@ import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.platform.plugin.NuclrResource;
+import dev.nuclr.platform.plugin.QuickViewNuclrPlugin;
 import dev.nuclr.plugin.core.panel.fs.find.FindFileContext;
 import dev.nuclr.plugin.core.panel.fs.find.FindFileDialog;
 import dev.nuclr.plugin.core.panel.fs.find.FindFileRequest;
@@ -57,76 +58,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	protected String uuid = java.util.UUID.randomUUID().toString();
 
 	public static final String PluginId = "dev.nuclr.plugin.core.panel.fs";
-	protected static final String PluginName = "Local Filesystem Panel";
-	protected static final String PluginVersion = loadVersion();
-	protected static final String PluginDescription = "Provides local filesystem roots (drives/mount points) to the file panel.";
-	protected static final String PluginAuthor = "Nuclr Development Team";
-	protected static final String PluginLicense = "Apache-2.0";
-	protected static final String PluginWebsite = "https://nuclr.dev";
-	protected static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
-	protected static final String PluginDocUrl = PluginPageUrl;
 
 	private NuclrPluginContext context;
 
 	private boolean focused = false;
 
 	private NuclrResource currentFolder;
-
-	@Override
-	public String id() {
-		return PluginId;
-	}
-
-	@Override
-	public String name() {
-		return PluginName;
-	}
-
-	@Override
-	public String version() {
-		return PluginVersion;
-	}
-
-	private static String loadVersion() {
-		try (var stream = LocalFileSystemPlugin.class.getResourceAsStream("/plugin.properties")) {
-			if (stream == null) return "unknown";
-			var props = new java.util.Properties();
-			props.load(stream);
-			return props.getProperty("version", "unknown");
-		} catch (java.io.IOException e) {
-			return "unknown";
-		}
-	}
-
-	@Override
-	public String description() {
-		return PluginDescription;
-	}
-
-	@Override
-	public String author() {
-		return PluginAuthor;
-	}
-
-	@Override
-	public String license() {
-		return PluginLicense;
-	}
-
-	@Override
-	public String website() {
-		return PluginWebsite;
-	}
-
-	@Override
-	public String pageUrl() {
-		return PluginPageUrl;
-	}
-
-	@Override
-	public String docUrl() {
-		return PluginDocUrl;
-	}
 
 	public LocalFileSystemPlugin() {
 
@@ -214,7 +151,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			var res = new MenuItem();
 			res.setPath(Helper.build(context, p));
 			res.setText(p.toString());
-			res.setUuid(id() + ":" + p.toString());
+			res.setUuid(PluginId + ":" + p.toString());
 			resources.add(res);
 		});
 
@@ -386,10 +323,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		this.focused = flag;
 	}
 
-	@Override
-	public boolean singleton() {
-		return false;
-	}
 
 	@Override
 	public boolean isFocused() {
@@ -410,10 +343,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public void closeResource() {
 	}
 
-	@Override
-	public Developer developer() {
-		return Developer.Official;
-	}
 
 	@Override
 	public String getCurrentLocationDisplayText() {
@@ -595,7 +524,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	 * {@link MoveService} cannot target with {@code Files.move}.
 	 */
 	private boolean hasLocalMoveTarget(BaseNuclrPlugin other) {
-		if (other == null || other.uuid().equals(this.uuid()) || other.is(BaseNuclrPlugin.Type.QuickView)) {
+		if (other == null || other.uuid().equals(this.uuid()) || other instanceof QuickViewNuclrPlugin) {
 			return false;
 		}
 		NuclrResource folder = other.getCurrentResource();
@@ -788,20 +717,20 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				return;
 			}
 
-			if (other != null && other.id().equals(LocalFileSystemPlugin.PluginId)) {
+			if (other instanceof LocalFileSystemPlugin) {
 				log.warn("Copy to another instance of FS plugin");
 				other.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
 				return;
 			}
 
-			if (other!=null && other.is(BaseNuclrPlugin.Type.QuickView)) {
+			if (other instanceof QuickViewNuclrPlugin) {
 				log.warn("Copy to itself");
 				this.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
 				return;
 			}
 
 			if (other != null) {
-				log.warn("Copy to another plugin: " + other.name());
+				log.warn("Copy to another plugin: " + other.getClass().getSimpleName());
 				other.act(null, AcceptCopy, selectedResources, focusedResource, data, callback);
 				return;
 			}
@@ -1065,5 +994,6 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			NuclrContextMenuItem.builder().label("Delete").actionType("filepanel.delete").build()
 		);
 	}
+
 
 }

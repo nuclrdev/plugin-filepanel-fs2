@@ -79,15 +79,6 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 
 	protected String uuid = UUID.randomUUID().toString();
 
-	public static final String PluginId = "dev.nuclr.plugin.core.panel.fs.quickview.lnk";
-	protected static final String PluginName = "Windows Shortcut Quick View";
-	protected static final String PluginVersion = loadVersion();
-	protected static final String PluginDescription = "Provides QuickView support for Windows .lnk shortcut files.";
-	protected static final String PluginAuthor = "Nuclr Development Team";
-	protected static final String PluginLicense = "Apache-2.0";
-	protected static final String PluginWebsite = "https://nuclr.dev";
-	protected static final String PluginPageUrl = "https://nuclr.dev/plugins/core/filepanel-fs.html";
-	protected static final String PluginDocUrl = PluginPageUrl;
 
 	private NuclrPluginContext context;
 	private LnkQuickViewPanel panel;
@@ -104,10 +95,6 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 		return panel;
 	}
 
-	@Override
-	public int priority() {
-		return 0;
-	}
 
 	@Override
 	public boolean openResource(NuclrResource resource, AtomicBoolean cancelled) {
@@ -208,66 +195,6 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 		return "Quick View: " + (currentResource != null ? currentResource.getName() : "");
 	}
 
-	@Override
-	public String id() {
-		return PluginId;
-	}
-
-	@Override
-	public String name() {
-		return PluginName;
-	}
-
-	@Override
-	public String version() {
-		return PluginVersion;
-	}
-
-	private static String loadVersion() {
-		try (var stream = QuickViewLnkPlugin.class.getResourceAsStream("/plugin.properties")) {
-			if (stream == null) return "unknown";
-			var props = new java.util.Properties();
-			props.load(stream);
-			return props.getProperty("version", "unknown");
-		} catch (java.io.IOException e) {
-			return "unknown";
-		}
-	}
-
-	@Override
-	public String description() {
-		return PluginDescription;
-	}
-
-	@Override
-	public String author() {
-		return PluginAuthor;
-	}
-
-	@Override
-	public String license() {
-		return PluginLicense;
-	}
-
-	@Override
-	public String website() {
-		return PluginWebsite;
-	}
-
-	@Override
-	public String pageUrl() {
-		return PluginPageUrl;
-	}
-
-	@Override
-	public String docUrl() {
-		return PluginDocUrl;
-	}
-
-	@Override
-	public Developer developer() {
-		return Developer.Official;
-	}
 
 	private static final class LnkQuickViewPanel extends JPanel {
 
@@ -1410,4 +1337,5 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 				Math.round(base.getGreen() * baseWeight + overlay.getGreen() * clamped),
 				Math.round(base.getBlue() * baseWeight + overlay.getBlue() * clamped));
 	}
+
 }

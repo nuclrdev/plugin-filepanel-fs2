@@ -41,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <h2>Registration</h2>
  * List this class alongside {@link LocalFileSystemPlugin} under {@code panelProviders} in
- * {@code plugin.json}; the registry discovers it as a separate template keyed by
+ * an explicit manifest entry; the registry discovers it as a separate template keyed by
  * {@link #id()}.
  *
  * <p>Implemented: the synthetic root + listing, the {@code ..}-to-origin exit, the
@@ -50,9 +50,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 
-	public static final String PluginId = "dev.nuclr.plugin.core.panel.fs.temp";
-	protected static final String PluginName = "Temporary Local Filesystem Panel";
-	protected static final String PluginDescription = "Provides temporary local filesystem panel.";
 
 	/** Metadata flag marking a resource as a temp-panel root (claimed only by this plugin). */
 	private static final String MARKER = "nuclr.temp.panel";
@@ -84,21 +81,6 @@ public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 
 	// Redeclaring the constants above only *shadows* the superclass fields — the inherited
 	// id()/name()/description() still read the superclass values, so override them here.
-
-	@Override
-	public String id() {
-		return PluginId;
-	}
-
-	@Override
-	public String name() {
-		return PluginName;
-	}
-
-	@Override
-	public String description() {
-		return PluginDescription;
-	}
 
 	/**
 	 * Claim only the synthetic temp-panel root. Real paths fall through to
@@ -260,4 +242,5 @@ public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 			setUuid("temp-panel:" + java.util.UUID.randomUUID());
 		}
 	}
+
 }

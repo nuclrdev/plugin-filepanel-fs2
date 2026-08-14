@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "version": "${project.version}",
+  "platformSdkVersion": "4.0.0",
+	"plugins": [
+		{
+			"class": "dev.nuclr.plugin.core.panel.fs.LocalFileSystemPlugin",
+			"type": "FilePanel",
+			"id": "dev.nuclr.plugin.core.panel.fs",
+			"name": "Local Filesystem Panel",
+			"version": "${project.version}",
+			"description": "Provides local filesystem roots (drives/mount points) to the file panel.",
+			"author": "Nuclr Development Team",
+			"license": "Apache-2.0",
+			"website": "https://nuclr.dev",
+			"pageUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"docUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"developer": "Official",
+			"singleton": false
+		},
+		{
+			"class": "dev.nuclr.plugin.core.panel.fs.TempFilePanelPlugin",
+			"type": "FilePanel",
+			"id": "dev.nuclr.plugin.core.panel.fs.temp",
+			"name": "Temporary Local Filesystem Panel",
+			"version": "${project.version}",
+			"description": "Provides temporary local filesystem panel.",
+			"author": "Nuclr Development Team",
+			"license": "Apache-2.0",
+			"website": "https://nuclr.dev",
+			"pageUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"docUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"developer": "Official",
+			"singleton": false
+		},
+		{
+			"class": "dev.nuclr.plugin.core.panel.fs.QuickViewLnkPlugin",
+			"type": "QuickView",
+			"id": "dev.nuclr.plugin.core.panel.fs.quickview.lnk",
+			"name": "Windows Shortcut Quick View",
+			"version": "${project.version}",
+			"description": "Provides QuickView support for Windows .lnk shortcut files.",
+			"author": "Nuclr Development Team",
+			"license": "Apache-2.0",
+			"website": "https://nuclr.dev",
+			"pageUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"docUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"developer": "Official",
+			"singleton": true,
+			"priority": 0
+		}
+	]
+}

@@ -30,7 +30,6 @@ import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import dev.nuclr.platform.plugin.BaseNuclrPlugin;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin.MenuItem;
 import dev.nuclr.platform.plugin.FilePanelNuclrPlugin.NuclrResourceData;
@@ -39,6 +38,7 @@ import dev.nuclr.platform.plugin.NuclrMenuResource;
 import dev.nuclr.platform.plugin.NuclrResource;
 import dev.nuclr.plugin.core.panel.fs.support.FakeContext;
 import dev.nuclr.plugin.core.panel.fs.support.RecordingFilePanelPlugin;
+import dev.nuclr.plugin.core.panel.fs.support.RecordingLocalFileSystemPlugin;
 import dev.nuclr.plugin.core.panel.fs.support.TestResource;
 
 /** Integration tests for the {@link LocalFileSystemPlugin} façade. */
@@ -75,29 +75,34 @@ class LocalFileSystemPluginTest {
 	// ---------------------------------------------------------------- metadata
 
 	@Test
-	void metadata_constantsAreStable() {
+	void identityConstant_isStable() {
 		LocalFileSystemPlugin p = new LocalFileSystemPlugin();
-		assertEquals("dev.nuclr.plugin.core.panel.fs", p.id());
-		assertEquals(LocalFileSystemPlugin.PluginId, p.id());
-		assertEquals("Local Filesystem Panel", p.name());
-		assertEquals("Apache-2.0", p.license());
-		assertEquals("https://nuclr.dev", p.website());
-		assertNotNull(p.description());
-		assertNotNull(p.author());
-		assertEquals(p.pageUrl(), p.docUrl());
-		assertEquals(BaseNuclrPlugin.Developer.Official, p.developer());
-		assertEquals(BaseNuclrPlugin.Type.FilePanel, p.type());
-		assertTrue(p.is(BaseNuclrPlugin.Type.FilePanel));
-		assertFalse(p.singleton());
+		assertEquals("dev.nuclr.plugin.core.panel.fs", LocalFileSystemPlugin.PluginId);
 		assertFalse(p.isMessageSupported("anything"));
 	}
 
+	/**
+	 * Since SDK 4.0.0 the descriptive metadata lives in {@code plugin.json} rather
+	 * than on the plugin class, so that manifest is what has to stay in step with
+	 * the code.
+	 */
 	@Test
-	void version_isResolvedFromFilteredResource() {
-		String v = new LocalFileSystemPlugin().version();
-		assertNotNull(v);
-		assertNotEquals("unknown", v, "plugin.properties should be filtered at build time");
-		assertTrue(v.matches("\\d+\\.\\d+\\.\\d+.*"), "expected a semver-like version, was " + v);
+	void manifest_declaresThisPluginWithASemverVersion() throws Exception {
+		String manifest;
+		try (var stream = LocalFileSystemPlugin.class.getResourceAsStream("/plugin.json")) {
+			assertNotNull(stream, "plugin.json should be on the classpath");
+			manifest = new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+		}
+
+		assertTrue(manifest.contains('"' + LocalFileSystemPlugin.class.getName() + '"'),
+			"plugin.json should list " + LocalFileSystemPlugin.class.getName());
+		assertTrue(manifest.contains('"' + LocalFileSystemPlugin.PluginId + '"'),
+			"plugin.json should declare id " + LocalFileSystemPlugin.PluginId);
+
+		var version = java.util.regex.Pattern.compile("\"version\"\\s*:\\s*\"([^\"]+)\"").matcher(manifest);
+		assertTrue(version.find(), "plugin.json should declare a version");
+		assertTrue(version.group(1).matches("\\d+\\.\\d+\\.\\d+.*"),
+			"expected a semver-like version, was " + version.group(1));
 	}
 
 	@Test
@@ -222,7 +227,7 @@ class LocalFileSystemPluginTest {
 		assertFalse(holder.getMenuItems().isEmpty());
 		for (MenuItem item : holder.getMenuItems()) {
 			assertNotNull(item.getPath());
-			assertEquals(p.id() + ":" + item.getText(), item.getUuid());
+			assertEquals(LocalFileSystemPlugin.PluginId + ":" + item.getText(), item.getUuid());
 		}
 	}
 
@@ -389,7 +394,7 @@ class LocalFileSystemPluginTest {
 	@Test
 	void act_copyDelegatesToADifferentPlugin(@TempDir Path dir) {
 		LocalFileSystemPlugin p = newPlugin();
-		RecordingFilePanelPlugin other = new RecordingFilePanelPlugin("other.id", "other-uuid");
+		RecordingFilePanelPlugin other = new RecordingFilePanelPlugin("other-uuid");
 		TestResource res = new TestResource(dir);
 
 		p.act(other, "filepanel.copy", List.of(res), res, new HashMap<>(), null);
@@ -408,10 +413,10 @@ class LocalFileSystemPluginTest {
 		TestResource res = new TestResource(dir);
 		Map<String, Object> data = new HashMap<>();
 
-		// Same plugin id but a different uuid => the peer FS instance is the copy
-		// destination, so the "accept.copy" handshake is forwarded to it (source = null)
-		// and the receiving pane copies into its own folder.
-		RecordingFilePanelPlugin fsTwin = new RecordingFilePanelPlugin(LocalFileSystemPlugin.PluginId, "twin");
+		// Another FS panel instance with a different uuid => the peer FS instance is the
+		// copy destination, so the "accept.copy" handshake is forwarded to it (source =
+		// null) and the receiving pane copies into its own folder.
+		RecordingLocalFileSystemPlugin fsTwin = new RecordingLocalFileSystemPlugin("twin");
 		p.act(fsTwin, "filepanel.copy", List.of(res), res, data, null);
 		assertEquals(1, fsTwin.actCalls.size());
 		assertEquals("accept.copy", fsTwin.actCalls.get(0).actionType);
@@ -419,7 +424,7 @@ class LocalFileSystemPluginTest {
 		assertSame(res, fsTwin.actCalls.get(0).focused);
 
 		// Same uuid => copy to itself: handled in-process, never delegated to the peer.
-		RecordingFilePanelPlugin self = new RecordingFilePanelPlugin("x", p.uuid());
+		RecordingFilePanelPlugin self = new RecordingFilePanelPlugin(p.uuid());
 		p.act(self, "filepanel.copy", List.of(res), res, data, null);
 		assertTrue(self.actCalls.isEmpty());
 
