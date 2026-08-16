@@ -4,6 +4,12 @@ An official [Nuclr Commander](https://nuclr.dev) plugin that adds local drives a
 
 The bundle ships three plugins: the panel itself, a FAR-style **Temporary Panel** used to hold search results, and a **Quick View** provider for Windows `.lnk` shortcuts.
 
+## Screenshots
+
+![Nuclr Commander local filesystem panels](images/scr-1.png)
+
+![Copy options for local filesystem entries](images/scr-2.png)
+
 ## ✨ What it does
 
 | Feature | Details |
