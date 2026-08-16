@@ -13,8 +13,8 @@
 			"author": "Nuclr Development Team",
 			"license": "Apache-2.0",
 			"website": "https://nuclr.dev",
-			"pageUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
-			"docUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"pageUrl": "https://github.com/nuclrdev/plugin-filepanel-fs2",
+			"docUrl": "https://github.com/nuclrdev/plugin-filepanel-fs2",
 			"developer": "Official",
 			"singleton": false
 		},
@@ -28,8 +28,8 @@
 			"author": "Nuclr Development Team",
 			"license": "Apache-2.0",
 			"website": "https://nuclr.dev",
-			"pageUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
-			"docUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"pageUrl": "https://github.com/nuclrdev/plugin-filepanel-fs2",
+			"docUrl": "https://github.com/nuclrdev/plugin-filepanel-fs2",
 			"developer": "Official",
 			"singleton": false
 		},
@@ -43,8 +43,8 @@
 			"author": "Nuclr Development Team",
 			"license": "Apache-2.0",
 			"website": "https://nuclr.dev",
-			"pageUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
-			"docUrl": "https://nuclr.dev/plugins/core/filepanel-fs.html",
+			"pageUrl": "https://github.com/nuclrdev/plugin-filepanel-fs2",
+			"docUrl": "https://github.com/nuclrdev/plugin-filepanel-fs2",
 			"developer": "Official",
 			"singleton": true,
 			"priority": 0
