@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -48,38 +50,40 @@ public class CopyService {
 	 * @param currentFolder     the destination directory (the receiving panel's folder)
 	 * @param selectedResources marked resources to copy; used when non-empty
 	 * @param focusedResource   the cursor item, used when nothing is marked
-	 * @param data              event payload (unused — the destination pane is refreshed via the
-	 *                          plugin's {@code refresh.plugin.file.panel} event, not this map)
+	 * @param data              event payload; receives {@code result.refresh.paths} on success
 	 * @param callback          the commander progress bridge (unused — the plugin owns its UI)
+	 * @return {@code true} when the copy completed, otherwise {@code false}
 	 */
-	public void copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
+	public boolean copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
 			Map<String, Object> data, NuclrPluginCallback callback) {
-		copy(currentFolder, selectedResources, focusedResource, data, callback, null);
+		return copy(currentFolder, selectedResources, focusedResource, data, callback, null);
 	}
 
-	public void copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
+	public boolean copy(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
 			Map<String, Object> data, NuclrPluginCallback callback, NuclrPluginContext context) {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null || !Files.isDirectory(destination)) {
 			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
-			return;
+			return false;
 		}
 
 		List<Path> sources = collectSources(selectedResources, focusedResource);
 		if (sources.isEmpty()) {
 			Alerts.showError(context, DialogTitle, "There is nothing to copy.");
-			return;
+			return false;
 		}
 
 		CopyOptions options = CopyDialog.show(header(sources), destination, context);
 		if (options == null) {
 			SoundEvents.cancel(context);
-			return; // cancelled
+			return false; // cancelled
 		}
 		if (options.getDestination() == null) {
 			options.setDestination(destination);
 		}
+		boolean destinationExisted = Files.exists(options.getDestination());
+		boolean destinationIsTarget = sources.size() == 1 && !Files.isDirectory(options.getDestination());
 
 		CopyConflictDialog conflictDialog = new CopyConflictDialog(context);
 		AtomicBoolean completed = new AtomicBoolean(false);
@@ -94,12 +98,42 @@ public class CopyService {
 
 		if (completed.get()) {
 			SoundEvents.processComplete(context);
+			Path refreshDirectory = destinationIsTarget ? options.getDestination().getParent() : options.getDestination();
+			var refreshDirectories = new java.util.LinkedHashSet<Path>();
+			if (refreshDirectory != null) {
+				refreshDirectories.add(refreshDirectory);
+			}
+			// A multi-source copy may create a destination directory. Its parent must
+			// refresh as well so the newly-created folder appears immediately.
+			if (!destinationExisted && !destinationIsTarget && options.getDestination().getParent() != null) {
+				refreshDirectories.add(options.getDestination().getParent());
+			}
+			putRefreshPaths(data, refreshDirectories);
 		}
 
-		// Note: the destination pane is reloaded by the "refresh.plugin.file.panel" event the
-		// handling plugin emits for its own uuid. We deliberately do NOT set "result.refresh"
-		// here: that flag is consumed by the pane that *initiated* the copy (the source), which
-		// would needlessly reload it and reset its cursor to "..".
+		// The handling plugin publishes result.refresh.paths to every panel showing the actual
+		// destination. It does not refresh the initiating source panel because copying leaves it unchanged.
+		return completed.get();
+	}
+
+	static void putRefreshPaths(Map<String, Object> data, Iterable<Path> destinations) {
+		if (data == null || destinations == null) {
+			return;
+		}
+		var paths = new java.util.LinkedHashSet<Path>();
+		for (Path destination : destinations) {
+			if (destination != null) {
+				paths.add(destination);
+			}
+		}
+		if (paths.isEmpty()) {
+			return;
+		}
+		try {
+			data.put(RESULT_REFRESH_PATHS, List.copyOf(paths));
+		} catch (UnsupportedOperationException ignored) {
+			// Optional host coordination; the directory watcher still observes the change.
+		}
 	}
 
 	/**

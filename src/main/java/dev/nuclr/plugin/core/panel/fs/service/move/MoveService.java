@@ -17,6 +17,10 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service.move;
 
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH;
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_SELECTED_RESOURCE;
+
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -56,20 +60,21 @@ public class MoveService {
 	 * @param callback          the commander progress bridge (unused — the plugin owns its UI)
 	 * @param context           plugin context, used to build the resource the panel should focus
 	 *                          after a single-item rename
+	 * @return {@code true} when the move completed, otherwise {@code false}
 	 */
-	public void move(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
+	public boolean move(NuclrResource currentFolder, List<NuclrResource> selectedResources, NuclrResource focusedResource,
 			Map<String, Object> data, NuclrPluginCallback callback, NuclrPluginContext context) {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null) {
 			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
-			return;
+			return false;
 		}
 
 		List<Path> sources = collectSources(selectedResources, focusedResource);
 		if (sources.isEmpty()) {
 			Alerts.showError(context, DialogTitle, "There is nothing to move.");
-			return;
+			return false;
 		}
 
 		// For a single item, pre-fill the full target path (folder + name) so the user can rename
@@ -81,7 +86,7 @@ public class MoveService {
 		MoveOptions options = MoveDialog.show(header(sources), prefill, context);
 		if (options == null) {
 			SoundEvents.cancel(context);
-			return; // cancelled
+			return false; // cancelled
 		}
 		if (options.getDestination() == null) {
 			options.setDestination(destination);
@@ -103,15 +108,15 @@ public class MoveService {
 		}, context);
 
 		if (!completed.get()) {
-			return;
+			return false;
 		}
 		SoundEvents.processComplete(context);
 
-		// The destination pane is reloaded by the "refresh.plugin.file.panel" event the handling
-		// plugin emits for its own uuid. Unlike copy, a move also empties the source pane, so we
-		// ask the *initiating* pane to refresh via result.refresh.
+		// Publish every source parent and the effective destination through result.refresh.paths.
+		// Unlike copy, a move also asks the initiating source pane to refresh directly.
 		if (data != null) {
-			data.put("result.refresh", true);
+			Path effectiveDestination = explicitTarget ? options.getDestination().getParent() : options.getDestination();
+			putRefreshResults(data, sources, effectiveDestination);
 
 			// For a single-item rename in place, put the cursor back on the renamed entry
 			// after the refresh. Only when it lands in the same folder being reloaded (an
@@ -122,13 +127,29 @@ public class MoveService {
 				if (renamed != null && Files.exists(renamed)
 						&& renamed.getParent() != null && renamed.getParent().equals(sourceParent)) {
 					try {
-						data.put("result.refresh.selected.resource", new FileNuclrResource(context, renamed));
+						data.put(RESULT_REFRESH_SELECTED_RESOURCE, new FileNuclrResource(context, renamed));
 					} catch (RuntimeException e) {
 						log.debug("Could not build renamed resource for focus: {}", e.getMessage());
 					}
 				}
 			}
 		}
+		return true;
+	}
+
+	static void putRefreshResults(Map<String, Object> data, List<Path> sources, Path destination) {
+		if (data == null) {
+			return;
+		}
+		data.put(RESULT_REFRESH, true);
+		var refreshPaths = new java.util.LinkedHashSet<Path>();
+		if (sources != null) {
+			sources.stream().map(Path::getParent).filter(java.util.Objects::nonNull).forEach(refreshPaths::add);
+		}
+		if (destination != null) {
+			refreshPaths.add(destination);
+		}
+		data.put(RESULT_REFRESH_PATHS, List.copyOf(refreshPaths));
 	}
 
 	/** Resolve the resources to act on: marked selection if present, otherwise the cursor item. */

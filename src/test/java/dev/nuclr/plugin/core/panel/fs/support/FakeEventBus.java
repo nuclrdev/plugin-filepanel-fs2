@@ -11,6 +11,7 @@ package dev.nuclr.plugin.core.panel.fs.support;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import dev.nuclr.platform.events.NuclrEventBus;
 import dev.nuclr.platform.events.NuclrEventListener;
@@ -38,8 +39,8 @@ public final class FakeEventBus implements NuclrEventBus {
 		}
 	}
 
-	public final List<Emission> emissions = new ArrayList<>();
-	public final List<NuclrEventListener> listeners = new ArrayList<>();
+	public final List<Emission> emissions = new CopyOnWriteArrayList<>();
+	public final List<NuclrEventListener> listeners = new CopyOnWriteArrayList<>();
 	public int subscribeCount = 0;
 	public int unsubscribeCount = 0;
 

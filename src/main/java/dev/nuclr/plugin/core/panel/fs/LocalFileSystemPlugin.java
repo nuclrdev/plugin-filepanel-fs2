@@ -1,5 +1,10 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.REFRESH_SOURCE_PLUGIN_UUID;
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH;
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_SELECTED_RESOURCE;
+
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 import java.io.IOException;
@@ -42,6 +47,7 @@ import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import dev.nuclr.plugin.core.panel.fs.service.ClipboardService;
 import dev.nuclr.plugin.core.panel.fs.service.CopyService;
 import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
+import dev.nuclr.plugin.core.panel.fs.service.DirectoryChangeMonitor;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
 import dev.nuclr.plugin.core.panel.fs.service.move.MoveService;
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +66,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	 * commander's embedded one.
 	 */
 	private static final String OpenExternalKey = "filePanelOpenExternal";
+	private static final String RefreshFilePanelsAtPaths = "refresh.file.panels.at.paths";
+	private static final String RefreshFilePanelsPathsKey = "paths";
+	private static final String RefreshFilePanelsExcludedPluginUuidsKey = "exclude.plugin.uuids";
+	private static final String PanelVisibilityChanged = "filepanel.visibility.changed";
+	private static final String PanelVisibleKey = "visible";
 	private static final boolean IS_MAC = System.getProperty("os.name", "").toLowerCase().contains("mac");
 
 	private static final String GO_TO_PATH_SHORTCUT = IS_MAC ? "Shift+Cmd+G" : "Ctrl+Shift+G";
@@ -73,6 +84,10 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	private boolean focused = false;
 
 	private NuclrResource currentFolder;
+
+	private DirectoryChangeMonitor directoryMonitor;
+	private volatile boolean panelVisible = true;
+	private List<DirectoryChangeMonitor.EntryState> lastWatchEntries = List.of();
 
 	public LocalFileSystemPlugin() {
 
@@ -127,6 +142,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public void preinit(NuclrPluginContext context) {
 
 		this.context = context;
+		if (monitorsDirectoryChanges()) {
+			this.directoryMonitor = new DirectoryChangeMonitor(this::emitWatchedFolderRefresh);
+		}
 
 		var rootPath = getRootPath();
 		log.info("Default drive path: " + rootPath);
@@ -143,6 +161,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public void unload() {
+		if (directoryMonitor != null) {
+			directoryMonitor.close();
+		}
 		if (context != null) {
 			context.getEventBus().unsubscribe(this);
 		}
@@ -219,6 +240,13 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		if (!Files.isDirectory(path)) {
 			return null;
 		}
+		// Suspend the previous watch before streaming a fresh listing. Otherwise a
+		// notification from the directory being read can cancel this load and start
+		// another one indefinitely while the directory is churning.
+		if (directoryMonitor != null) {
+			directoryMonitor.clear();
+		}
+		lastWatchEntries = List.of();
 
 		this.currentFolder = folder;
 
@@ -253,6 +281,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			}
 		} catch (IOException e) {
 			log.error("Failed to list directory: " + path, e);
+		}
+		if (cancelled == null || !cancelled.get()) {
+			lastWatchEntries = monitorEntries(entries);
+			if (directoryMonitor != null && panelVisible) {
+				directoryMonitor.watch(path, lastWatchEntries);
+			}
 		}
 
 		return entries;
@@ -350,6 +384,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	@Override
 	public void closeResource() {
+		if (directoryMonitor != null) {
+			directoryMonitor.clear();
+		}
 	}
 
 
@@ -614,6 +651,21 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			NuclrResource focusedResource,
 			Map<String, Object> data, 
 			NuclrPluginCallback callback) {
+
+		if (PanelVisibilityChanged.equals(actionType)) {
+			panelVisible = data == null || !Boolean.FALSE.equals(data.get(PanelVisibleKey));
+			if (directoryMonitor != null) {
+				if (!panelVisible) {
+					directoryMonitor.clear();
+				} else {
+					Path current = getCurrentFolderPath();
+					if (current != null) {
+						directoryMonitor.watch(current, lastWatchEntries);
+					}
+				}
+			}
+			return;
+		}
 		
 		if ("find".equals(actionType)) {
 			openFindFileDialog(other, selectedResources);
@@ -759,8 +811,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		// Accept copy action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
 		if (AcceptCopy.equals(actionType)) {
-			new CopyService().copy(this.currentFolder, selectedResources, focusedResource, data, callback, this.context);
-			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
+			if (copyService().copy(this.currentFolder, selectedResources, focusedResource, data, callback, this.context)) {
+				emitFolderRefreshes(refreshPaths(data, currentFolderPaths()), List.of());
+			}
 			return;
 		}
 		
@@ -777,6 +830,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			// in-place rename instead, opening the dialog on this panel's own folder so the user can
 			// edit just the name. Moving a local file onto a remote server is a transfer (F5 copy),
 			// not a rename, so it is deliberately not attempted here.
+			putPayloadValue(data, REFRESH_SOURCE_PLUGIN_UUID, this.uuid());
 			if (hasLocalMoveTarget(other)) {
 				log.warn("Move into opposite local panel");
 				other.act(null, AcceptMove, selectedResources, focusedResource, data, callback);
@@ -789,8 +843,13 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		// Accept move action from other plugins, but only if the source is not this plugin (to avoid loops) and the payload contains resources.
 		if (AcceptMove.equals(actionType)) {
-			new MoveService().move(this.currentFolder, selectedResources, focusedResource, data, callback, this.context);
-			this.context.getEventBus().emit("refresh.plugin.file.panel", Map.of("plugin.uuid", this.uuid()), null);
+			var affectedFolders = affectedFolders(selectedResources, focusedResource, getCurrentFolderPath());
+			if (moveService().move(this.currentFolder, selectedResources, focusedResource, data, callback, this.context)) {
+				String sourceUuid = data != null && data.get(REFRESH_SOURCE_PLUGIN_UUID) instanceof String value
+						? value : null;
+				emitFolderRefreshes(refreshPaths(data, affectedFolders),
+						sourceUuid == null ? List.of() : List.of(sourceUuid));
+			}
 			return;
 		}
 		
@@ -849,8 +908,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 
 	void processClipboardPasteFiles(List<Path> clipboardFiles) {
 		if (new CopyService().pasteFiles(this.currentFolder, clipboardFiles, this.context)) {
-			this.context.getEventBus().emit("refresh.plugin.file.panel",
-					Map.of("plugin.uuid", this.uuid()), null);
+			emitFolderRefreshes(currentFolderPaths(), List.of());
 		}
 	}
 
@@ -885,11 +943,12 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 		try {
-			data.put("result.refresh", true);
-			data.put("result.refresh.selected.resource", Helper.build(context, createdPath));
+			data.put(RESULT_REFRESH, true);
+			data.put(RESULT_REFRESH_SELECTED_RESOURCE, Helper.build(context, createdPath));
 		} catch (UnsupportedOperationException ignored) {
 			log.debug("Make-folder event payload is immutable; created resource will not be selected.");
 		}
+		emitFolderRefreshes(currentFolderPaths(), List.of(this.uuid()));
 
 		
 	}
@@ -906,9 +965,109 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		if (deleted) {
 			SoundEvents.processComplete(context);
-			data.put("result.refresh", true);
+			data.put(RESULT_REFRESH, true);
+			emitFolderRefreshes(affectedFolders(sources, null, null), List.of(this.uuid()));
 		}
 		
+	}
+
+	private void emitWatchedFolderRefresh(Path directory) {
+		emitFolderRefreshes(List.of(directory), List.of());
+	}
+
+	private List<Path> currentFolderPaths() {
+		Path current = getCurrentFolderPath();
+		return current == null ? List.of() : List.of(current);
+	}
+
+	private static List<Path> refreshPaths(Map<String, Object> data, List<Path> fallback) {
+		if (data == null || !(data.get(RESULT_REFRESH_PATHS) instanceof Iterable<?> values)) {
+			return fallback;
+		}
+		var paths = new java.util.LinkedHashSet<Path>();
+		for (Object value : values) {
+			try {
+				Path path = value instanceof Path supplied ? supplied : Path.of(String.valueOf(value));
+				paths.add(path);
+			} catch (RuntimeException ignored) {
+				// Ignore malformed optional coordination metadata.
+			}
+		}
+		return paths.isEmpty() ? fallback : List.copyOf(paths);
+	}
+
+	protected CopyService copyService() {
+		return new CopyService();
+	}
+
+	protected MoveService moveService() {
+		return new MoveService();
+	}
+
+	/** Temporary/virtual subclasses can opt out because they do not display one real directory. */
+	protected boolean monitorsDirectoryChanges() {
+		return true;
+	}
+
+	private static List<DirectoryChangeMonitor.EntryState> monitorEntries(NuclrResourceData entries) {
+		if (entries == null || entries.getEntries() == null) {
+			return List.of();
+		}
+		return entries.getEntries().stream()
+				.filter(FileNuclrResource.class::isInstance)
+				.map(FileNuclrResource.class::cast)
+				.filter(entry -> !"..".equals(entry.getName()))
+				.map(entry -> new DirectoryChangeMonitor.EntryState(
+						entry.getName(), entry.isWatchDirectory(), entry.getWatchSize(),
+						entry.getWatchModifiedMillis()))
+				.toList();
+	}
+
+	void emitFolderRefreshes(List<Path> directories, List<String> excludedPluginUuids) {
+		if (context == null || directories == null) {
+			return;
+		}
+		var paths = directories.stream()
+				.filter(java.util.Objects::nonNull)
+				.map(path -> path.toAbsolutePath().normalize().toString())
+				.distinct()
+				.toList();
+		if (paths.isEmpty()) {
+			return;
+		}
+		context.getEventBus().emit(RefreshFilePanelsAtPaths, Map.of(
+				RefreshFilePanelsPathsKey, paths,
+				RefreshFilePanelsExcludedPluginUuidsKey, excludedPluginUuids == null ? List.of() : excludedPluginUuids),
+				null);
+	}
+
+	private static List<Path> affectedFolders(List<NuclrResource> selectedResources,
+			NuclrResource focusedResource, Path destination) {
+		var folders = new java.util.LinkedHashSet<Path>();
+		if (destination != null) {
+			folders.add(destination);
+		}
+		for (NuclrResource resource : selectedResources == null ? List.<NuclrResource>of() : selectedResources) {
+			if (resource != null && resource.getPath() != null && resource.getPath().getParent() != null) {
+				folders.add(resource.getPath().getParent());
+			}
+		}
+		if ((selectedResources == null || selectedResources.isEmpty()) && focusedResource != null
+				&& focusedResource.getPath() != null && focusedResource.getPath().getParent() != null) {
+			folders.add(focusedResource.getPath().getParent());
+		}
+		return List.copyOf(folders);
+	}
+
+	private static void putPayloadValue(Map<String, Object> data, String key, Object value) {
+		if (data == null) {
+			return;
+		}
+		try {
+			data.put(key, value);
+		} catch (UnsupportedOperationException ignored) {
+			// Optional coordination metadata; immutable payloads still work via directory watching.
+		}
 	}
 
 	/**

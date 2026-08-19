@@ -50,6 +50,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 
+	@Override
+	protected boolean monitorsDirectoryChanges() {
+		return false;
+	}
+
 
 	/** Metadata flag marking a resource as a temp-panel root (claimed only by this plugin). */
 	private static final String MARKER = "nuclr.temp.panel";

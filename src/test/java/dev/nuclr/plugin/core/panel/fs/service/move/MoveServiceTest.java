@@ -14,7 +14,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -31,6 +33,22 @@ import dev.nuclr.plugin.core.panel.fs.support.TestResource;
 class MoveServiceTest {
 
 	private static Method collectSources;
+
+	@Test
+	void refreshPayloadContainsSourceParentsDestinationAndRefreshFlag() {
+		Map<String, Object> data = new HashMap<>();
+		Path firstParent = Path.of("first");
+		Path secondParent = Path.of("second");
+		Path destination = Path.of("destination");
+
+		MoveService.putRefreshResults(data,
+				List.of(firstParent.resolve("a.txt"), secondParent.resolve("b.txt")), destination);
+
+		assertEquals(Boolean.TRUE,
+				data.get(dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH));
+		assertEquals(List.of(firstParent, secondParent, destination),
+				data.get(dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS));
+	}
 
 	@BeforeAll
 	static void lookup() throws Exception {

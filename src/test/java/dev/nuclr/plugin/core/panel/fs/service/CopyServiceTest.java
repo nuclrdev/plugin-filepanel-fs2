@@ -14,12 +14,26 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class CopyServiceTest {
+
+	@Test
+	void refreshPayloadUsesSharedKeyAndPreservesDistinctDirectories() {
+		Map<String, Object> data = new HashMap<>();
+		Path first = Path.of("first");
+		Path second = Path.of("second");
+
+		CopyService.putRefreshPaths(data, List.of(first, first, second));
+
+		assertEquals(List.of(first, second),
+				data.get(dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS));
+	}
 
 	@Test
 	void regularFilesFiltersFoldersMissingPathsNullsAndDuplicates(@TempDir Path dir) throws IOException {

@@ -43,6 +43,21 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public final class FileNuclrResource extends NuclrResource {
+	private boolean watchDirectory;
+	private long watchSize = -1L;
+	private long watchModifiedMillis = -1L;
+
+	boolean isWatchDirectory() {
+		return watchDirectory;
+	}
+
+	long getWatchSize() {
+		return watchSize;
+	}
+
+	long getWatchModifiedMillis() {
+		return watchModifiedMillis;
+	}
 
 	public static final List<String> ColumnNames = List.of(
 			"Name",
@@ -165,6 +180,9 @@ public final class FileNuclrResource extends NuclrResource {
 			setLastModifiedDateTime(EPOCH);
 			setCreatedDateTime(EPOCH);
 			setLastAccessDateTime(EPOCH);
+			watchDirectory = false;
+			watchSize = -1L;
+			watchModifiedMillis = -1L;
 			return;
 		}
 
@@ -191,6 +209,9 @@ public final class FileNuclrResource extends NuclrResource {
 		setLastModifiedDateTime(toLocal(attrs.lastModifiedTime()));
 		setCreatedDateTime(toLocal(attrs.creationTime()));
 		setLastAccessDateTime(toLocal(attrs.lastAccessTime()));
+		watchDirectory = directory;
+		watchSize = directory ? 0L : length;
+		watchModifiedMillis = attrs.lastModifiedTime().toMillis();
 	}
 
 	private static BasicFileAttributes readFollowing(Path path) {

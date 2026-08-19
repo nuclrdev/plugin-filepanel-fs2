@@ -24,7 +24,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 import org.junit.jupiter.api.Test;
@@ -40,6 +44,8 @@ import dev.nuclr.plugin.core.panel.fs.support.FakeContext;
 import dev.nuclr.plugin.core.panel.fs.support.RecordingFilePanelPlugin;
 import dev.nuclr.plugin.core.panel.fs.support.RecordingLocalFileSystemPlugin;
 import dev.nuclr.plugin.core.panel.fs.support.TestResource;
+import dev.nuclr.plugin.core.panel.fs.service.CopyService;
+import dev.nuclr.plugin.core.panel.fs.service.move.MoveService;
 
 /** Integration tests for the {@link LocalFileSystemPlugin} façade. */
 class LocalFileSystemPluginTest {
@@ -144,6 +150,58 @@ class LocalFileSystemPluginTest {
 		assertTrue(p.isFocused());
 		p.onFocusLost();
 		assertFalse(p.isFocused());
+	}
+
+	@Test
+	void watcherIsSuspendedWhileAReplacementListingRuns(@TempDir Path directory) throws Exception {
+		CountDownLatch listingStarted = new CountDownLatch(1);
+		CountDownLatch finishListing = new CountDownLatch(1);
+		class BlockingListPlugin extends LocalFileSystemPlugin {
+			volatile boolean block;
+
+			@Override
+			protected Stream<Path> list(Path path) throws IOException {
+				if (block) {
+					listingStarted.countDown();
+					try {
+						if (!finishListing.await(2, TimeUnit.SECONDS)) {
+							throw new IOException("test listing timed out");
+						}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+						throw new IOException(e);
+					}
+				}
+				return super.list(path);
+			}
+		}
+
+		ctx = new FakeContext();
+		BlockingListPlugin p = new BlockingListPlugin();
+		p.preinit(ctx);
+		p.init();
+		TestResource resource = new TestResource(directory);
+		p.openResource(resource, new AtomicBoolean(false));
+		Thread.sleep(100); // let the initial native watch register before replacing it
+		p.block = true;
+		AtomicReference<Throwable> failure = new AtomicReference<>();
+		Thread reader = Thread.ofVirtual().start(() -> {
+			try {
+				p.openResource(resource, new AtomicBoolean(false));
+			} catch (Throwable t) {
+				failure.set(t);
+			}
+		});
+
+		assertTrue(listingStarted.await(2, TimeUnit.SECONDS));
+		Files.writeString(directory.resolve("during-load.txt"), "change");
+		Thread.sleep(350);
+		assertTrue(ctx.eventBus.emissionsOfType("refresh.file.panels.at.paths").isEmpty(),
+				"the previous watch must not cancel a listing in progress");
+		finishListing.countDown();
+		reader.join();
+		assertNull(failure.get());
+		p.unload();
 	}
 
 	// ------------------------------------------------------------------ menus
@@ -449,18 +507,93 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
-	void act_copyEmitsRefreshEventForTheHandlingPanel(@TempDir Path dir) {
+	void pathRefreshEventCarriesAffectedFolderAndExclusions(@TempDir Path dir) {
 		LocalFileSystemPlugin p = newPlugin();
-		TestResource res = new TestResource(dir);
+		p.emitFolderRefreshes(List.of(dir, dir.resolve(".")), List.of(p.uuid()));
 
-		// other == null => copy handled in-process. Once the copy runs, the plugin asks the
-		// commander to reload the pane that owns it (identified by uuid), because that is the
-		// folder whose contents changed — not necessarily the pane that initiated the action.
-		p.act(null, "filepanel.copy", List.of(res), res, new HashMap<>(), null);
-
-		var refreshes = ctx.eventBus.emissionsOfType("refresh.plugin.file.panel");
+		var refreshes = ctx.eventBus.emissionsOfType("refresh.file.panels.at.paths");
 		assertEquals(1, refreshes.size());
-		assertEquals(p.uuid(), refreshes.get(0).event.get("plugin.uuid"));
+		assertEquals(List.of(dir.toAbsolutePath().normalize().toString()), refreshes.get(0).event.get("paths"));
+		assertEquals(List.of(p.uuid()), refreshes.get(0).event.get("exclude.plugin.uuids"));
+	}
+
+	@Test
+	void filePanelCopyPublishesTheDestinationServicesResultPath(@TempDir Path root) throws IOException {
+		Path destination = Files.createDirectory(root.resolve("destination"));
+		Path reported = Files.createDirectory(root.resolve("reported"));
+		Path source = Files.writeString(root.resolve("source.txt"), "source");
+		class CopyPlugin extends LocalFileSystemPlugin {
+			@Override
+			protected CopyService copyService() {
+				return new CopyService() {
+					@Override
+					public boolean copy(NuclrResource currentFolder, List<NuclrResource> selected,
+							NuclrResource focused, Map<String, Object> data,
+							dev.nuclr.platform.plugin.NuclrPluginCallback callback,
+							dev.nuclr.platform.plugin.NuclrPluginContext context) {
+						data.put(FilePanelPayloadKeys.RESULT_REFRESH_PATHS, List.of(reported));
+						return true;
+					}
+				};
+			}
+		}
+
+		ctx = new FakeContext();
+		CopyPlugin destinationPlugin = new CopyPlugin();
+		destinationPlugin.preinit(ctx);
+		destinationPlugin.init();
+		destinationPlugin.openResource(new TestResource(destination), new AtomicBoolean(false));
+		LocalFileSystemPlugin sourcePlugin = new LocalFileSystemPlugin();
+		sourcePlugin.preinit(new FakeContext());
+		sourcePlugin.init();
+		sourcePlugin.act(destinationPlugin, "filepanel.copy", List.of(new TestResource(source)),
+				null, new HashMap<>(), null);
+
+		var refresh = ctx.eventBus.emissionsOfType("refresh.file.panels.at.paths").get(0).event;
+		assertEquals(List.of(reported.toAbsolutePath().normalize().toString()), refresh.get("paths"));
+		assertEquals(List.of(), refresh.get("exclude.plugin.uuids"));
+		destinationPlugin.unload();
+		sourcePlugin.unload();
+	}
+
+	@Test
+	void filePanelMoveExcludesTheSourceInstanceAndUsesFallbackFolders(@TempDir Path root) throws IOException {
+		Path sourceFolder = Files.createDirectory(root.resolve("source"));
+		Path destination = Files.createDirectory(root.resolve("destination"));
+		Path source = Files.writeString(sourceFolder.resolve("source.txt"), "source");
+		class MovePlugin extends LocalFileSystemPlugin {
+			@Override
+			protected MoveService moveService() {
+				return new MoveService() {
+					@Override
+					public boolean move(NuclrResource currentFolder, List<NuclrResource> selected,
+							NuclrResource focused, Map<String, Object> data,
+							dev.nuclr.platform.plugin.NuclrPluginCallback callback,
+							dev.nuclr.platform.plugin.NuclrPluginContext context) {
+						return true; // deliberately omit result paths to exercise the fallback
+					}
+				};
+			}
+		}
+
+		ctx = new FakeContext();
+		MovePlugin destinationPlugin = new MovePlugin();
+		destinationPlugin.preinit(ctx);
+		destinationPlugin.init();
+		destinationPlugin.openResource(new TestResource(destination), new AtomicBoolean(false));
+		LocalFileSystemPlugin sourcePlugin = new LocalFileSystemPlugin();
+		sourcePlugin.preinit(new FakeContext());
+		sourcePlugin.init();
+		Map<String, Object> data = new HashMap<>();
+		sourcePlugin.act(destinationPlugin, "filepanel.move", List.of(new TestResource(source)),
+				null, data, null);
+
+		var refresh = ctx.eventBus.emissionsOfType("refresh.file.panels.at.paths").get(0).event;
+		assertEquals(List.of(destination.toAbsolutePath().normalize().toString(),
+				sourceFolder.toAbsolutePath().normalize().toString()), refresh.get("paths"));
+		assertEquals(List.of(sourcePlugin.uuid()), refresh.get("exclude.plugin.uuids"));
+		destinationPlugin.unload();
+		sourcePlugin.unload();
 	}
 
 	@Test
