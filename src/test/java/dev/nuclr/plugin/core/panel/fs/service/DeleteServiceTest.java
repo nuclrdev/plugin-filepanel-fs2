@@ -30,14 +30,65 @@ import dev.nuclr.plugin.core.panel.fs.support.RecordingCallback;
 import dev.nuclr.plugin.core.panel.fs.support.TestResource;
 
 /**
- * Tests for {@link DeleteService}. Every case forces {@code permanent = true} so the
- * physical (recursive) delete path is exercised rather than the platform recycle bin,
- * which is environment dependent and unavailable headless.
+ * Tests for {@link DeleteService}. Safe-delete tests inject a fake system trash so they run
+ * identically on Windows, macOS, Linux, and headless CI.
  */
 class DeleteServiceTest {
 
 	private static NuclrResource resourceFor(Path p) {
 		return new TestResource(p);
+	}
+
+	@Test
+	void safeDeleteUsesSystemTrashOperation(@TempDir Path dir) throws IOException {
+		Path file = dir.resolve("safe.txt");
+		Files.writeString(file, "keep recoverable");
+		List<Path> trashed = new ArrayList<>();
+
+		boolean deleted = DeleteService.delete(List.of(resourceFor(file)), false, new RecordingCallback(), null,
+				path -> {
+					trashed.add(path);
+					Files.delete(path);
+				});
+
+		assertTrue(deleted);
+		assertEquals(List.of(file), trashed);
+		assertFalse(Files.exists(file));
+	}
+
+	@Test
+	void safeDeleteNeverFallsBackToPermanentDeletion(@TempDir Path dir) throws IOException {
+		Path file = dir.resolve("must-survive.txt");
+		Files.writeString(file, "important");
+		RecordingCallback cb = new RecordingCallback();
+		int[] prompts = { 0 };
+
+		boolean deleted = DeleteService.delete(List.of(resourceFor(file)), false, cb, (item, error) -> {
+			prompts[0]++;
+			assertTrue(error.getMessage().contains("unavailable"));
+			return false;
+		}, path -> {
+			throw new IOException("Trash or Recycle Bin is unavailable; nothing was deleted");
+		});
+
+		assertFalse(deleted);
+		assertTrue(Files.exists(file), "safe delete must not become permanent when trash is unavailable");
+		assertEquals(1, prompts[0]);
+		assertEquals(1, cb.errorCount);
+	}
+
+	@Test
+	void permanentDeleteDoesNotUseSystemTrash(@TempDir Path dir) throws IOException {
+		Path file = dir.resolve("permanent.txt");
+		Files.writeString(file, "remove");
+
+		boolean deleted = DeleteService.delete(List.of(resourceFor(file)), true, new RecordingCallback(), null,
+				path -> {
+					throw new AssertionError("permanent delete must bypass the trash operation");
+				});
+
+		assertTrue(deleted);
+		assertFalse(Files.exists(file));
 	}
 
 	@Test

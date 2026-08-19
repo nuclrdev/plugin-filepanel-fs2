@@ -51,40 +51,66 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 final class DeleteDialogs {
 
-	private static final String TITLE = "Delete";
+	private static final String ERROR_TITLE = "Delete";
 
 	private DeleteDialogs() {
 	}
 
 	/** @return true if the user confirmed (OK), false on Cancel/ESC. */
 	static boolean confirmDelete(List<NuclrResource> sources) {
-		return confirmDelete(sources, null);
+		return confirmDelete(sources, false, null);
 	}
 
 	/** @return true if the user confirmed (OK), false on Cancel/ESC. */
 	static boolean confirmDelete(List<NuclrResource> sources, NuclrPluginContext context) {
+		return confirmDelete(sources, false, context);
+	}
+
+	/** @return true if the user confirmed, false on Cancel/ESC. */
+	static boolean confirmDelete(List<NuclrResource> sources, boolean permanent, NuclrPluginContext context) {
+
+		ConfirmationContent content = confirmationContent(sources, permanent);
+		Component message = buildText(content.message(), sources.size() > 1);
+		SoundEvents.warning(context);
+		boolean proceed = choose(content.title(), message, content.proceedText(), "Cancel");
+		if (!proceed) {
+			SoundEvents.cancel(context);
+		}
+		return proceed;
+	}
+
+	static ConfirmationContent confirmationContent(List<NuclrResource> sources, boolean permanent) {
 
 		boolean single = sources.size() <= 1;
 		String header;
 		if (single) {
 			boolean folder = !sources.isEmpty() && sources.get(0).isFolder();
-			header = folder ? "Do you wish to delete the folder?" : "Do you wish to delete the file?";
+			String object = folder ? "folder" : "file";
+			header = permanent
+					? "Permanently delete the " + object + "?"
+					: "Move the " + object + " to Trash or Recycle Bin?";
 		} else {
-			header = "Do you wish to delete the objects?";
+			header = permanent
+					? "Permanently delete the selected objects?"
+					: "Move the selected objects to Trash or Recycle Bin?";
 		}
 
-		StringBuilder sb = new StringBuilder(header).append('\n');
+		String explanation = permanent
+				? "This action cannot be undone."
+				: "You can restore " + (single ? "it" : "them")
+						+ " later from the operating system's Trash or Recycle Bin.";
+		StringBuilder sb = new StringBuilder(header).append('\n')
+				.append(explanation).append("\n\n");
 		for (NuclrResource r : sources) {
 			sb.append(fullPath(r)).append('\n');
 		}
 
-		Component message = buildText(sb.toString().stripTrailing(), !single);
-		SoundEvents.warning(context);
-		boolean proceed = choose(TITLE, message, "OK", "Cancel");
-		if (!proceed) {
-			SoundEvents.cancel(context);
-		}
-		return proceed;
+		String title = permanent ? "Delete Permanently" : "Move to Trash";
+		String proceedText = permanent ? "Delete Permanently" : "Move to Trash";
+		return new ConfirmationContent(title, sb.toString().stripTrailing(), proceedText);
+	}
+
+	record ConfirmationContent(String title, String message, String proceedText) {
 	}
 
 	private static String fullPath(NuclrResource r) {
@@ -105,7 +131,7 @@ final class DeleteDialogs {
 		String detail = e == null || e.getMessage() == null ? "Could not delete the object." : e.getMessage();
 		Component message = buildText("Failed to delete:\n" + name + "\n\n" + detail, false);
 		SoundEvents.error(context);
-		boolean skip = choose(TITLE, message, "Skip", "Abort");
+		boolean skip = choose(ERROR_TITLE, message, "Skip", "Abort");
 		if (!skip) {
 			SoundEvents.cancel(context);
 		}

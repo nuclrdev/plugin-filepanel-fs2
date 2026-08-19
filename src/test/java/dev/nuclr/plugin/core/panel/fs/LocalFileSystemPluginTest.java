@@ -178,7 +178,16 @@ class LocalFileSystemPluginTest {
 	void genericDeleteActionUsesTheSameDeleteRouteAsF8() {
 		assertTrue(LocalFileSystemPlugin.isDeleteAction(PluginActions.DELETE));
 		assertTrue(LocalFileSystemPlugin.isDeleteAction("filepanel.delete"));
+		assertFalse(LocalFileSystemPlugin.isPermanentDeleteAction(PluginActions.DELETE));
 		assertFalse(LocalFileSystemPlugin.isDeleteAction("delete.unsupported"));
+	}
+
+	@Test
+	void genericPermanentDeleteAndShiftF8UseThePermanentDeleteRoute() {
+		assertTrue(LocalFileSystemPlugin.isDeleteAction(PluginActions.DELETE_PERMANENT));
+		assertTrue(LocalFileSystemPlugin.isPermanentDeleteAction(PluginActions.DELETE_PERMANENT));
+		assertTrue(LocalFileSystemPlugin.isPermanentDeleteAction("deletePermanent"));
+		assertTrue(LocalFileSystemPlugin.isPermanentDeleteAction("filepanel.deletePermanent"));
 	}
 
 	@Test

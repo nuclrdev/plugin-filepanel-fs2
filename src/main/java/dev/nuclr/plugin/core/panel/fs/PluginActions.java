@@ -29,6 +29,9 @@ final class PluginActions {
 	/** Host-dispatched Delete-key action. Must match Commander's action protocol value. */
 	static final String DELETE = "delete";
 
+	/** Host-dispatched Shift+Delete action. Must match Commander's action protocol value. */
+	static final String DELETE_PERMANENT = "delete.permanent";
+
 	/** Context-menu action that copies local files using the platform file-list flavour. */
 	static final String CLIPBOARD_COPY_FILES = "clipboard.copy.files";
 

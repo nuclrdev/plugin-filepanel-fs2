@@ -34,10 +34,12 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * Performs the actual deletion of local files/folders for the FS panel plugin.
  *
- * <p>Soft delete uses the platform recycle bin via {@link Desktop#moveToTrash} when available,
- * otherwise falls back to a regular (physical) delete. Physical delete is recursive and
- * <strong>junction/symlink safe</strong>: a reparse point is unlinked itself and never descended
- * into, so deleting e.g. {@code C:\Documents and Settings} can never destroy {@code C:\Users}.
+ * <p>Safe delete delegates to the operating system's Trash/Recycle Bin through
+ * {@link Desktop#moveToTrash}. It never falls back to physical deletion: if the desktop API is
+ * unavailable or rejects the move, the item is left in place and the failure is reported.
+ * Permanent delete is recursive and <strong>junction/symlink safe</strong>: a reparse point is
+ * unlinked itself and never descended into, so deleting e.g. {@code C:\Documents and Settings}
+ * can never destroy {@code C:\Users}.
  *
  * <p>Runs synchronously on the caller's (background) thread; reports progress and honours
  * cancellation through {@link NuclrPluginCallback}, and prompts via {@link ErrorPrompt} on failure.
@@ -51,13 +53,24 @@ public final class DeleteService {
 		boolean onError(NuclrResource item, Exception e);
 	}
 
+	/** Platform-trash boundary, injectable so safe-delete routing is testable on every OS. */
+	@FunctionalInterface
+	interface TrashOperation {
+		void moveToTrash(Path path) throws IOException;
+	}
+
 	private DeleteService() {
 	}
 
 	public static boolean delete(List<NuclrResource> sources, boolean permanent, NuclrPluginCallback cb,
 			ErrorPrompt errorPrompt) {
+		return delete(sources, permanent, cb, errorPrompt, permanent ? null : systemTrash());
+	}
 
-		boolean useTrash = !permanent && trashSupported();
+	static boolean delete(List<NuclrResource> sources, boolean permanent, NuclrPluginCallback cb,
+			ErrorPrompt errorPrompt, TrashOperation trash) {
+
+		boolean deletedAny = false;
 
 		for (NuclrResource src : sources) {
 
@@ -76,15 +89,14 @@ public final class DeleteService {
 			}
 
 			try {
-				if (useTrash) {
-					if (!Desktop.getDesktop().moveToTrash(path.toFile())) {
-						throw new IOException("Could not move to the Recycle Bin");
-					}
-				} else {
+				if (permanent) {
 					deletePhysical(path, cb);
+				} else {
+					trash.moveToTrash(path);
 				}
+				deletedAny = true;
 				if (cb != null && cb.isCancelled()) {
-					return false; // cancelled mid-item: it may be only partially deleted, do not report success
+					return deletedAny;
 				}
 				if (cb != null) {
 					cb.onComplete();
@@ -100,7 +112,7 @@ public final class DeleteService {
 				}
 			}
 		}
-		return true;
+		return deletedAny;
 	}
 
 	private static void deletePhysical(Path path, NuclrPluginCallback cb) throws IOException {
@@ -154,8 +166,31 @@ public final class DeleteService {
 		}
 	}
 
-	private static boolean trashSupported() {
-		return Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.MOVE_TO_TRASH);
+	private static TrashOperation systemTrash() {
+		if (!Desktop.isDesktopSupported()) {
+			return unavailableTrash();
+		}
+
+		try {
+			Desktop desktop = Desktop.getDesktop();
+			if (!desktop.isSupported(Desktop.Action.MOVE_TO_TRASH)) {
+				return unavailableTrash();
+			}
+			return path -> {
+				if (!desktop.moveToTrash(path.toFile())) {
+					throw new IOException("The operating system could not move the item to Trash or Recycle Bin");
+				}
+			};
+		} catch (RuntimeException e) {
+			log.warn("Could not initialise the operating system trash integration", e);
+			return unavailableTrash();
+		}
+	}
+
+	private static TrashOperation unavailableTrash() {
+		return path -> {
+			throw new IOException("Trash or Recycle Bin is unavailable; nothing was deleted");
+		};
 	}
 
 	private static String displayName(NuclrResource src, Path path) {
