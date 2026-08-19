@@ -175,6 +175,13 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
+	void genericDeleteActionUsesTheSameDeleteRouteAsF8() {
+		assertTrue(LocalFileSystemPlugin.isDeleteAction(PluginActions.DELETE));
+		assertTrue(LocalFileSystemPlugin.isDeleteAction("filepanel.delete"));
+		assertFalse(LocalFileSystemPlugin.isDeleteAction("delete.unsupported"));
+	}
+
+	@Test
 	void contextMenuItems_areOpenRevealCopySeparatorDelete() {
 		LocalFileSystemPlugin p = newPlugin();
 		List<NuclrContextMenuItem> items = p.contextMenuItems(null, List.of());

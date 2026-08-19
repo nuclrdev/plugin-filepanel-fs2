@@ -26,6 +26,9 @@ final class PluginActions {
 	/** Host-dispatched paste action. Must match Commander's action protocol value. */
 	static final String CLIPBOARD_PASTE = "clipboard.paste";
 
+	/** Host-dispatched Delete-key action. Must match Commander's action protocol value. */
+	static final String DELETE = "delete";
+
 	/** Context-menu action that copies local files using the platform file-list flavour. */
 	static final String CLIPBOARD_COPY_FILES = "clipboard.copy.files";
 

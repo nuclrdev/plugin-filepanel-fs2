@@ -664,8 +664,9 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 		
-		if ("filepanel.delete".equals(actionType) || "filepanel.deletePermanent".equals(actionType)) {
-			handleDelete(data, getSelectedResourcesForEvent(selectedResources, focusedResource), "filepanel.deletePermanent".equals(actionType), callback);
+		if (isDeleteAction(actionType)) {
+			handleDelete(data, getSelectedResourcesForEvent(selectedResources, focusedResource),
+					isPermanentDeleteAction(actionType), callback);
 			return;
 		}
 
@@ -794,6 +795,16 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 		
 
+	}
+
+	static boolean isDeleteAction(String actionType) {
+		return PluginActions.DELETE.equals(actionType)
+				|| "filepanel.delete".equals(actionType)
+				|| isPermanentDeleteAction(actionType);
+	}
+
+	private static boolean isPermanentDeleteAction(String actionType) {
+		return "filepanel.deletePermanent".equals(actionType);
 	}
 
 	private void processClipboardPaste() {
