@@ -51,6 +51,9 @@ import lombok.extern.slf4j.Slf4j;
  *   <li><b>Copy full path to clipboard</b> &mdash; the absolute path(s) as text.
  *       A {@code ".."} entry contributes the currently opened folder's path
  *       (the {@code ".."} pseudo-entry has no path of its own).</li>
+ *   <li><b>Copy file name to clipboard</b> &mdash; just the last path segment(s)
+ *       as text, without the parent folders. A {@code ".."} entry contributes the
+ *       currently opened folder's name.</li>
  *   <li><b>Copy selected files/folders to clipboard</b> &mdash; the actual files
  *       as {@link DataFlavor#javaFileListFlavor}, so they can be pasted into the
  *       OS file manager. Disabled when the selection includes a {@code ".."}
@@ -107,6 +110,10 @@ public final class ClipboardService {
 		var copyPath = new javax.swing.JMenuItem("Copy full path to clipboard");
 		copyPath.addActionListener(e -> copyFullPaths(resources, currentFolder, context));
 		popup.add(copyPath);
+
+		var copyName = new javax.swing.JMenuItem("Copy file name to clipboard");
+		copyName.addActionListener(e -> copyFileNames(resources, currentFolder, context));
+		popup.add(copyName);
 
 		var copyFiles = new javax.swing.JMenuItem("Copy selected files/folders to clipboard");
 		copyFiles.setEnabled(!containsParent);
@@ -175,6 +182,39 @@ public final class ClipboardService {
 			return path.toAbsolutePath().toString();
 		}
 		return effective.getFullPath() != null ? effective.getFullPath() : effective.getName();
+	}
+
+	/**
+	 * Copy the bare name of each resource (no parent folders), one per line. A
+	 * ".." entry contributes the currently opened folder's name.
+	 */
+	public static void copyFileNames(List<NuclrResource> resources, NuclrResource currentFolder) {
+		copyFileNames(resources, currentFolder, null);
+	}
+
+	public static void copyFileNames(List<NuclrResource> resources, NuclrResource currentFolder,
+			NuclrPluginContext context) {
+		if (resources == null || resources.isEmpty()) {
+			return;
+		}
+		String text = resources.stream()
+				.map(resource -> nameText(resource, currentFolder))
+				.collect(Collectors.joining(System.lineSeparator()));
+		emitClipboardResult(setClipboardContents(new StringSelection(text)), context);
+	}
+
+	private static String nameText(NuclrResource resource, NuclrResource currentFolder) {
+		NuclrResource effective = isParent(resource) ? currentFolder : resource;
+		if (effective == null) {
+			return "";
+		}
+		Path path = effective.getPath();
+		if (path != null) {
+			Path fileName = path.getFileName();
+			// Filesystem roots ("C:\", "/") have no name element; use the root itself.
+			return fileName != null ? fileName.toString() : path.toString();
+		}
+		return effective.getName() != null ? effective.getName() : "";
 	}
 
 	/** Copy the actual files/folders onto the clipboard as a Java file list. */
