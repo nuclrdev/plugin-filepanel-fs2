@@ -38,6 +38,9 @@ final class PluginActions {
 	/** Context-menu action that copies local filesystem paths as text. */
 	static final String CLIPBOARD_COPY_FULL_PATHS = "clipboard.copy.fullPaths";
 
+	/** F2 action opening the user-command list. Bound to the commander's long-standing F2 slot. */
+	static final String USER_COMMANDS = "userCommands";
+
 	private PluginActions() {
 	}
 }

@@ -77,4 +77,56 @@ class ExternalConsoleTest {
 		assertEquals(dir.toString(), command.get(5));
 		assertTrue(command.get(8).endsWith("build.bat"), command.get(8));
 	}
+
+	@Test
+	void aCommandLineBecomesAScriptForThePlatformsOwnConsoleShell(@TempDir Path dir) throws Exception {
+		Path script = ExternalConsole.writeCommandScript("git status", dir);
+
+		assertTrue(Files.isRegularFile(script), "the command must be materialised as a runnable script");
+		assertTrue(Files.readString(script).contains("git status"),
+				"the user's line goes into the script verbatim so only the shell ever parses it");
+	}
+
+	@Test
+	void theWindowsScriptEntersTheWorkingDirectoryAndRunsTheLine(@TempDir Path dir) {
+		String script = ExternalConsole.windowsCommandScript("git reset --hard HEAD", dir);
+
+		// /d so a working directory on another drive is honoured, not just another folder.
+		assertTrue(script.contains("cd /d \"" + dir + "\""), script);
+		assertTrue(script.contains("git reset --hard HEAD"), script);
+		assertTrue(script.startsWith("@echo off"), script);
+	}
+
+	@Test
+	void thePosixScriptEndsByExecingTheShellSoTheWindowStaysAndKeepsTheDirectory(@TempDir Path dir) {
+		String script = ExternalConsole.posixCommandScript("cd /nuclr/sources", dir);
+
+		assertTrue(script.startsWith("#!/bin/sh"), script);
+		assertTrue(script.contains("cd '" + dir + "' || exit 1"), script);
+		// exec (rather than a nested shell) is what leaves the window in whatever directory the
+		// user's own cd took it to, which is the point of a command like `cd /nuclr/sources`.
+		assertTrue(script.trim().endsWith("exec \"${SHELL:-/bin/sh}\""), script);
+	}
+
+	@Test
+	void thePosixScriptQuotingSurvivesAnApostropheInTheWorkingDirectory(@TempDir Path dir) {
+		Path awkward = dir.resolve("sergio's sources");
+		String script = ExternalConsole.posixCommandScript("git status", awkward);
+
+		assertTrue(script.contains("'\\''"), "apostrophe should be escaped, was: " + script);
+	}
+
+	@Test
+	void runCommandRejectsABlankLineOrAMissingFolder(@TempDir Path dir) {
+		assertThrows(IllegalArgumentException.class, () -> ExternalConsole.runCommand("  ", dir));
+		assertThrows(IllegalArgumentException.class, () -> ExternalConsole.runCommand("git status", null));
+		assertThrows(IOException.class, () -> ExternalConsole.runCommand("git status", dir.resolve("missing")));
+	}
+
+	@Test
+	void runRejectsAWorkingDirectoryThatIsNotAFolder(@TempDir Path dir) throws Exception {
+		Path bat = Files.createFile(dir.resolve("build.bat"));
+
+		assertThrows(IOException.class, () -> ExternalConsole.run(bat, dir.resolve("missing")));
+	}
 }

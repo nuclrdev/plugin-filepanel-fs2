@@ -233,6 +233,17 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
+	void menuItems_bindF2ToTheUserCommandList(@TempDir Path dir) {
+		// F2 is the one application-level key the user-command feature adds. The commander only
+		// dispatches a function key to the plugin when the plugin binds it with an event type;
+		// without this item F2 would fall through to the window's own (empty) handler.
+		List<NuclrMenuResource> items = newPlugin().menuItems(Helper.build(ctx, dir));
+
+		assertEquals("User Commands", labelFor(items, "F2"));
+		assertEquals("userCommands", eventFor(items, "F2"));
+	}
+
+	@Test
 	void genericDeleteActionUsesTheSameDeleteRouteAsF8() {
 		assertTrue(LocalFileSystemPlugin.isDeleteAction(PluginActions.DELETE));
 		assertTrue(LocalFileSystemPlugin.isDeleteAction("filepanel.delete"));

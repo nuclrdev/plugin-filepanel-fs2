@@ -50,6 +50,7 @@ import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.DirectoryChangeMonitor;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
 import dev.nuclr.plugin.core.panel.fs.service.move.MoveService;
+import dev.nuclr.plugin.core.panel.fs.usercommands.UserCommandsService;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -303,6 +304,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	private static void addDefaultMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
+		items.add(menu("User Commands", "F2", PluginActions.USER_COMMANDS));
 		items.add(menu("View", "F3", "filepanel.view"));
 		items.add(menu("Edit", "F4", "filepanel.edit"));
 		items.add(menu("Copy", "F5", "filepanel.copy"));
@@ -669,6 +671,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		
 		if ("find".equals(actionType)) {
 			openFindFileDialog(other, selectedResources);
+			return;
+		}
+
+		if (PluginActions.USER_COMMANDS.equals(actionType)) {
+			openUserCommands();
 			return;
 		}
 
@@ -1097,6 +1104,17 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
 		SoundEvents.popup(context);
 		SwingUtilities.invokeLater(() -> new FindFileDialog(owner, findContext).setVisible(true));
+	}
+
+	/**
+	 * Open the F2 User Commands list for this panel.
+	 *
+	 * <p>The panel's folder is handed over as a supplier rather than a value: a command that
+	 * configures no working directory of its own runs wherever the panel is when it runs, which
+	 * is not necessarily where it was when the list was opened.
+	 */
+	private void openUserCommands() {
+		new UserCommandsService(context, this::getCurrentFolderPath).open();
 	}
 
 	/** Resolve the local volumes (drive/mount-point roots) as resources for the Volumes scope. */
