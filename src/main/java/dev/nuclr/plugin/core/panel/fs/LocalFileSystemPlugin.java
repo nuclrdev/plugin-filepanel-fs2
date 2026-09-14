@@ -47,6 +47,7 @@ import dev.nuclr.plugin.core.panel.fs.find.LocalResourceNavigator;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
 import dev.nuclr.plugin.core.panel.fs.service.ClipboardService;
 import dev.nuclr.plugin.core.panel.fs.service.CopyService;
+import dev.nuclr.plugin.core.panel.fs.service.CreateFileService;
 import dev.nuclr.plugin.core.panel.fs.service.DeleteService;
 import dev.nuclr.plugin.core.panel.fs.service.DirectoryChangeMonitor;
 import dev.nuclr.plugin.core.panel.fs.service.MakeNewFolderService;
@@ -788,6 +789,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
+		if ("createFile".equals(actionType)) {
+			handleCreateFile(data, callback);
+			return;
+		}
+
 		if (PluginActions.CLIPBOARD_COPY.equals(actionType)) {
 			ClipboardService.showClipboardMenu(
 					getSelectedResourcesForEvent(selectedResources, focusedResource), this.currentFolder, context);
@@ -1258,6 +1264,25 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		var payload = new java.util.HashMap<String, Object>();
 		payload.put("resource", Helper.build(context, path));
 		context.getEventBus().emit(this, "filepanel.path.opened", payload);
+	}
+
+	/** Create a zero-byte file, then refresh the panel with the new entry selected. */
+	private void handleCreateFile(Map<String, Object> data, NuclrPluginCallback callback) {
+		Path created = CreateFileService.createFile(currentFolder, callback, context);
+		if (created == null) {
+			return;
+		}
+
+		NuclrResource resource = Helper.build(context, created);
+		try {
+			data.put(RESULT_REFRESH, true);
+			data.put(RESULT_REFRESH_SELECTED_RESOURCE, resource);
+		} catch (UnsupportedOperationException ignored) {
+			log.debug("Create-file event payload is immutable; created resource will not be selected.");
+		}
+
+		emitFolderRefreshes(currentFolderPaths(), List.of(this.uuid()));
+		SoundEvents.confirmation(context);
 	}
 
 	/** Navigate to a tree selection, selecting a file in its parent folder when necessary. */
