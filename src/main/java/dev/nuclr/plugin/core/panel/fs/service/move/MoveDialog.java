@@ -233,6 +233,7 @@ final class MoveDialog {
 
 		MoveOptions opts = new MoveOptions();
 		opts.setDestination(destination);
+		opts.setMoveIntoFolder(text.endsWith("/") || text.endsWith("\\")); // Path.of drops the trailing separator
 		opts.setAccessRights(rCopy.isSelected() ? MoveOptions.AccessRights.COPY
 				: rInherit.isSelected() ? MoveOptions.AccessRights.INHERIT : MoveOptions.AccessRights.DEFAULT);
 		opts.setConflictMode(conflictModeFor(existing.getSelectedIndex()));

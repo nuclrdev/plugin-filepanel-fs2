@@ -85,6 +85,7 @@ class MoveDialogsGuiTest extends AbstractGuiTest {
 		MoveOptions options = future.get(5, TimeUnit.SECONDS);
 		assertThat(options).isNotNull();
 		assertThat(options.getDestination()).isEqualTo(Path.of("C:\\dst\\renamed.bat"));
+		assertThat(options.isMoveIntoFolder()).isFalse();
 		assertThat(options.getConflictMode()).isEqualTo(MoveOptions.ConflictMode.OVERWRITE);
 		assertThat(options.getAccessRights()).isEqualTo(MoveOptions.AccessRights.COPY);
 		assertThat(options.isPreserveTimestamps()).isTrue();
@@ -101,6 +102,7 @@ class MoveDialogsGuiTest extends AbstractGuiTest {
 		MoveOptions options = future.get(5, TimeUnit.SECONDS);
 		assertThat(options).isNotNull();
 		assertThat(options.getDestination()).isEqualTo(Path.of("C:\\dst\\"));
+		assertThat(options.isMoveIntoFolder()).as("a trailing separator names a folder to move into").isTrue();
 		assertThat(options.getConflictMode()).isEqualTo(MoveOptions.ConflictMode.ASK);
 		assertThat(options.getAccessRights()).isEqualTo(MoveOptions.AccessRights.DEFAULT);
 		assertThat(options.isAskOnReadOnly()).isTrue();

@@ -61,6 +61,12 @@ public class MoveOptions {
 	 */
 	private Path destination;
 
+	/**
+	 * Set when the typed destination ends with a path separator: the user named a folder to move
+	 * into (created if missing), never a new name for a single source.
+	 */
+	private boolean moveIntoFolder;
+
 	private AccessRights accessRights = AccessRights.DEFAULT;
 
 	private ConflictMode conflictMode = ConflictMode.ASK;

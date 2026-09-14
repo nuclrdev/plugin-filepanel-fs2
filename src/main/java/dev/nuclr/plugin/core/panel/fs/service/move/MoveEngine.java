@@ -37,6 +37,7 @@ import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
+import java.util.UUID;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import lombok.extern.slf4j.Slf4j;
@@ -165,6 +166,11 @@ public final class MoveEngine {
 			return;
 		}
 
+		if (isCaseOnlyRename(source, target)) {
+			renameCase(source, target);
+			return;
+		}
+
 		boolean link = attrs.isSymbolicLink();
 		boolean directory = (link ? Files.isDirectory(source) : attrs.isDirectory())
 				&& !(link && !options.isCopySymbolicLinkContents());
@@ -186,6 +192,12 @@ public final class MoveEngine {
 		}
 
 		cb.onStart(fileName(source));
+
+		if (sameLocation(source, target)) {
+			// Moved to where it already is: nothing to do, and no pointless "already exists" prompt.
+			cb.onComplete();
+			return;
+		}
 
 		boolean append = false;
 		Path effectiveTarget = target;
@@ -438,9 +450,60 @@ public final class MoveEngine {
 		return target;
 	}
 
+	/**
+	 * Change only the letter case of an entry's name. On a case-insensitive filesystem the new name
+	 * already "exists" (it is the source itself) and {@code Files.move} silently does nothing, so
+	 * rename through a temporary sibling name, restoring the original name if the second step fails.
+	 */
+	private void renameCase(Path source, Path target) {
+
+		cb.onStart(fileName(source));
+		Path temp = source.resolveSibling(fileName(source) + ".nuclr-rename-" + UUID.randomUUID());
+		try {
+			Files.move(source, temp);
+			try {
+				Files.move(temp, target);
+			} catch (IOException e) {
+				Files.move(temp, source);
+				throw e;
+			}
+			cb.onComplete();
+		} catch (IOException e) {
+			reportError(source, e);
+		}
+	}
+
 	/** True when both paths resolve to the same filesystem location (a move onto itself). */
-	private static boolean sameLocation(Path a, Path b) {
+	static boolean sameLocation(Path a, Path b) {
 		return a.toAbsolutePath().normalize().equals(b.toAbsolutePath().normalize());
+	}
+
+	/**
+	 * True when {@code target} names the very same entry as {@code source}, in the same folder, with
+	 * only the letter case of the name changed (e.g. {@code a.txt} to {@code A.txt}) on a filesystem
+	 * that treats the two as one file.
+	 */
+	static boolean isCaseOnlyRename(Path source, Path target) {
+		String from = fileName(source);
+		String to = fileName(target);
+		if (from.equals(to) || !from.equalsIgnoreCase(to)) {
+			return false;
+		}
+		Path sourceParent = source.toAbsolutePath().getParent();
+		Path targetParent = target.toAbsolutePath().getParent();
+		if (sourceParent == null || targetParent == null || !sameLocation(sourceParent, targetParent)) {
+			return false;
+		}
+		try {
+			return Files.exists(target, LinkOption.NOFOLLOW_LINKS) && Files.isSameFile(source, target);
+		} catch (IOException e) {
+			return false;
+		}
+	}
+
+	/** True when moving {@code source} to {@code target} would leave it exactly where and as it is. */
+	static boolean isSelfMove(Path source, Path target) {
+		return sameLocation(source, target) && !isCaseOnlyRename(source, target);
 	}
 
 	private static boolean isSourceNewer(Path source, Path target) {

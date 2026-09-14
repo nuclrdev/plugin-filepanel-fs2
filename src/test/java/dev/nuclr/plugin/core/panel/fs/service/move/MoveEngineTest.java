@@ -158,6 +158,56 @@ class MoveEngineTest {
 		assertEquals(1, cb.completeCount);
 	}
 
+	/** An unchanged in-place F6 must not show the "already exists" prompt for the file itself. */
+	@Test
+	void fileMovedOntoItselfDoesNotAskAboutConflict(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "content");
+		boolean[] asked = { false };
+
+		boolean ok = new MoveEngine(options(file, MoveOptions.ConflictMode.ASK), new RecordingCallback(), (s, t) -> {
+			asked[0] = true;
+			return Resolution.of(Action.OVERWRITE);
+		}, (s, e) -> true, true).move(List.of(file));
+
+		assertTrue(ok);
+		assertFalse(asked[0], "a self-move is not a conflict");
+		assertEquals("content", Files.readString(file));
+	}
+
+	/** a.txt -> A.txt really changes the name, even where the filesystem ignores case. */
+	@Test
+	void caseOnlyRenameChangesFileName(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "content");
+		Path renamed = dir.resolve("A.txt");
+
+		boolean ok = new MoveEngine(options(renamed, MoveOptions.ConflictMode.ASK), new RecordingCallback(),
+				(s, t) -> Resolution.of(Action.CANCEL), (s, e) -> true, true).move(List.of(file));
+
+		assertTrue(ok);
+		assertEquals(List.of("A.txt"), listNames(dir));
+		assertEquals("content", Files.readString(renamed));
+	}
+
+	@Test
+	void caseOnlyRenameChangesDirectoryName(@TempDir Path dir) throws IOException {
+		Path folder = Files.createDirectory(dir.resolve("foo"));
+		Files.writeString(folder.resolve("keep.txt"), "keep");
+		Path renamed = dir.resolve("FOO");
+
+		boolean ok = new MoveEngine(options(renamed, MoveOptions.ConflictMode.ASK), new RecordingCallback(),
+				(s, t) -> Resolution.of(Action.CANCEL), (s, e) -> true, true).move(List.of(folder));
+
+		assertTrue(ok);
+		assertEquals(List.of("FOO"), listNames(dir));
+		assertEquals("keep", Files.readString(renamed.resolve("keep.txt")));
+	}
+
+	private static List<String> listNames(Path dir) throws IOException {
+		try (var entries = Files.list(dir)) {
+			return entries.map(p -> p.getFileName().toString()).sorted().toList();
+		}
+	}
+
 	@Test
 	void overwriteConflictReplacesExisting(@TempDir Path dir) throws IOException {
 		Path file = Files.writeString(dir.resolve("a.txt"), "NEW");

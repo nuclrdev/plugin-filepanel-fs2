@@ -79,8 +79,9 @@ public class MoveService {
 
 		// For a single item, pre-fill the full target path (folder + name) so the user can rename
 		// it in place; for several, just the folder (each keeps its own name).
-		String prefill = sources.size() == 1
-				? destination.resolve(sources.get(0).getFileName()).toString()
+		Path prefillTarget = sources.size() == 1 ? destination.resolve(sources.get(0).getFileName()) : null;
+		String prefill = prefillTarget != null
+				? prefillTarget.toString()
 				: destination.toString() + File.separator;
 
 		MoveOptions options = MoveDialog.show(header(sources), prefill, context);
@@ -88,13 +89,16 @@ public class MoveService {
 			SoundEvents.cancel(context);
 			return false; // cancelled
 		}
-		if (options.getDestination() == null) {
-			options.setDestination(destination);
-		}
 
-		// A single source whose typed destination is not an existing directory is a rename: the
-		// destination path is used verbatim. Otherwise the destination is a folder to move into.
-		boolean explicitTarget = sources.size() == 1 && !Files.isDirectory(options.getDestination());
+		MoveTarget target = resolveTarget(options.getDestination() != null ? options.getDestination() : destination,
+				options.isMoveIntoFolder(), sources, prefillTarget);
+		options.setDestination(target.destination());
+		boolean explicitTarget = target.explicit();
+
+		if (sources.stream().allMatch(source -> MoveEngine.isSelfMove(source,
+				explicitTarget ? target.destination() : target.destination().resolve(source.getFileName())))) {
+			return false; // every item would stay exactly where it is: nothing to move
+		}
 
 		MoveConflictDialog conflictDialog = new MoveConflictDialog(context);
 		AtomicBoolean completed = new AtomicBoolean(false);
@@ -135,6 +139,44 @@ public class MoveService {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * Where a move goes: {@code destination} is the exact new path of the single source when
+	 * {@code explicit}, otherwise a folder each source is moved into under its own name.
+	 */
+	record MoveTarget(Path destination, boolean explicit) {
+	}
+
+	/**
+	 * Interpret the destination typed in the dialog.
+	 *
+	 * <ul>
+	 * <li>A relative path is resolved against the sources' own folder, so a bare name renames in
+	 * place and {@code sub\name} or {@code ..\name} are relative to the file, not the app's working
+	 * directory.</li>
+	 * <li>A trailing separator, or several sources, always names a folder to move into.</li>
+	 * <li>For a single source, the unchanged pre-filled path, the source's own path, or a case-only
+	 * change of its name is used verbatim (merging into a same-named folder rather than nesting
+	 * inside it). Any other existing folder is moved into; anything else is the new path.</li>
+	 * </ul>
+	 */
+	static MoveTarget resolveTarget(Path typed, boolean intoFolder, List<Path> sources, Path prefillTarget) {
+
+		Path sourceFolder = sources.isEmpty() ? null : sources.get(0).getParent();
+		Path resolved = typed.isAbsolute() || sourceFolder == null
+				? typed.normalize()
+				: sourceFolder.resolve(typed).normalize();
+
+		if (sources.size() != 1 || intoFolder) {
+			return new MoveTarget(resolved, false);
+		}
+		Path source = sources.get(0);
+		if (MoveEngine.sameLocation(resolved, source) || MoveEngine.isCaseOnlyRename(source, resolved)
+				|| (prefillTarget != null && MoveEngine.sameLocation(resolved, prefillTarget))) {
+			return new MoveTarget(resolved, true);
+		}
+		return new MoveTarget(resolved, !Files.isDirectory(resolved));
 	}
 
 	static void putRefreshResults(Map<String, Object> data, List<Path> sources, Path destination) {
