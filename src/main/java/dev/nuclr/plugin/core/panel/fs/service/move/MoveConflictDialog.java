@@ -47,6 +47,7 @@ import javax.swing.SwingUtilities;
 
 import dev.nuclr.platform.plugin.NuclrPluginContext;
 import dev.nuclr.plugin.core.panel.fs.SoundEvents;
+import dev.nuclr.plugin.core.panel.fs.service.TransferPaths;
 import dev.nuclr.plugin.core.panel.fs.service.move.MoveEngine.Action;
 import dev.nuclr.plugin.core.panel.fs.service.move.MoveEngine.Resolution;
 import lombok.extern.slf4j.Slf4j;
@@ -216,7 +217,7 @@ final class MoveConflictDialog implements MoveEngine.ConflictResolver {
 				return;
 			}
 			try {
-				result[0] = Path.of(text);
+				result[0] = TransferPaths.renameTarget(target, Path.of(text));
 				dialog.dispose();
 			} catch (RuntimeException ex) {
 				log.debug("Invalid rename target [{}]: {}", text, ex.getMessage());

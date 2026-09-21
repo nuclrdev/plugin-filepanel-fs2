@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -166,6 +166,12 @@ public final class CopyEngine {
 
 		boolean directory = link ? Files.isDirectory(source) : attrs.isDirectory();
 
+		if (directory && TransferPaths.isSameOrInside(source, target)) {
+			// Copying a folder into itself would enumerate the copy it is creating, forever.
+			refuse(source, target, "Cannot copy a folder into itself");
+			return;
+		}
+
 		if (directory) {
 			copyDirectory(source, target);
 		} else {
@@ -175,25 +181,36 @@ public final class CopyEngine {
 
 	private void copyDirectory(Path source, Path target) {
 
+		Path effectiveTarget = target;
+
+		if (Files.exists(target, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(target)) {
+			// A non-directory occupies the target name: resolve it like any other clash.
+			Placement placement = resolveConflict(source, target);
+			if (placement == null) {
+				return;
+			}
+			if (placement.append) {
+				refuse(source, target, "Cannot append a folder to a file");
+				return;
+			}
+			effectiveTarget = placement.target;
+			if (TransferPaths.isSameOrInside(source, effectiveTarget)) {
+				// A typed rename can point back inside the source; the check in copyEntry saw only the original target.
+				refuse(source, effectiveTarget, "Cannot copy a folder into itself");
+				return;
+			}
+			if (effectiveTarget.equals(target)) {
+				try {
+					Files.delete(target); // overwrite: the folder replaces the file
+				} catch (IOException e) {
+					reportError(source, e);
+					return;
+				}
+			}
+		}
+
 		try {
-			Files.createDirectories(target); // merge if it already exists
-		} catch (FileAlreadyExistsException existsAsFile) {
-			// A non-directory occupies the target name: route through the conflict prompt.
-			Resolution r = ask(source, target);
-			if (r == null || r.action() == Action.CANCEL) {
-				aborted = true;
-				return;
-			}
-			if (r.action() == Action.SKIP) {
-				return;
-			}
-			try {
-				Files.deleteIfExists(target);
-				Files.createDirectories(target);
-			} catch (IOException e) {
-				reportError(source, e);
-				return;
-			}
+			Files.createDirectories(effectiveTarget); // merge if it already exists
 		} catch (IOException e) {
 			reportError(source, e);
 			return;
@@ -204,13 +221,13 @@ public final class CopyEngine {
 				if (isCancelled() || aborted) {
 					return;
 				}
-				copyEntry(child, target.resolve(fileName(child)));
+				copyEntry(child, effectiveTarget.resolve(fileName(child)));
 			}
 		} catch (IOException e) {
 			reportError(source, e);
 		}
 
-		applyAttributes(source, target);
+		applyAttributes(source, effectiveTarget);
 	}
 
 	private void copyFile(Path source, Path target) {
@@ -221,41 +238,23 @@ public final class CopyEngine {
 
 		cb.onStart(fileName(source));
 
-		boolean exists = Files.exists(target, LinkOption.NOFOLLOW_LINKS);
 		boolean append = false;
 		Path effectiveTarget = target;
 
-		if (exists) {
-			CopyOptions.ConflictMode mode = options.getConflictMode();
-			boolean readOnlyPrompt = options.isAskOnReadOnly() && !Files.isWritable(target);
-
-			if (mode == CopyOptions.ConflictMode.ASK || readOnlyPrompt) {
-				Resolution r = ask(source, target);
-				if (r == null || r.action() == Action.CANCEL) {
-					aborted = true;
-					return;
-				}
-				switch (r.action()) {
-					case SKIP -> { return; }
-					case APPEND -> append = true;
-					case RENAME -> effectiveTarget = r.renameTarget() != null ? r.renameTarget() : autoRename(target);
-					case OVERWRITE -> { /* fall through to write */ }
-					default -> { return; }
-				}
-			} else {
-				switch (mode) {
-					case SKIP -> { return; }
-					case APPEND -> append = true;
-					case RENAME -> effectiveTarget = autoRename(target);
-					case ONLY_NEWER -> {
-						if (!isSourceNewer(source, target)) {
-							return;
-						}
-					}
-					case OVERWRITE -> { /* fall through to write */ }
-					default -> { /* ASK handled above */ }
-				}
+		if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+			Placement placement = resolveConflict(source, target);
+			if (placement == null) {
+				return;
 			}
+			effectiveTarget = placement.target;
+			append = placement.append;
+		}
+
+		if (TransferPaths.isSameFile(source, effectiveTarget)) {
+			// Overwrite would truncate the very file being read, and append would never end.
+			// Only a rename to a free name can copy a file beside itself.
+			refuse(source, effectiveTarget, "Cannot copy a file onto itself");
+			return;
 		}
 
 		try {
@@ -302,15 +301,94 @@ public final class CopyEngine {
 
 	/** Re-create a symbolic link at the target, pointing at the same place as the source link. */
 	private void copyLink(Path source, Path target) {
+
 		cb.onStart(fileName(source));
+
+		Path effectiveTarget = target;
+
+		if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+			Placement placement = resolveConflict(source, target);
+			if (placement == null) {
+				return;
+			}
+			if (placement.append) {
+				refuse(source, target, "Cannot append to a symbolic link");
+				return;
+			}
+			effectiveTarget = placement.target;
+		}
+
+		if (TransferPaths.sameLocation(source, effectiveTarget)) {
+			refuse(source, effectiveTarget, "Cannot copy a link onto itself");
+			return;
+		}
+
 		try {
 			Path linkTarget = Files.readSymbolicLink(source);
-			Files.deleteIfExists(target);
-			Files.createSymbolicLink(target, linkTarget);
+			Path parent = effectiveTarget.getParent();
+			if (parent != null) {
+				Files.createDirectories(parent);
+			}
+			// Only an existing target the conflict policy agreed to replace is still there.
+			Files.deleteIfExists(effectiveTarget);
+			Files.createSymbolicLink(effectiveTarget, linkTarget);
 			cb.onComplete();
 		} catch (IOException | UnsupportedOperationException e) {
 			reportError(source, e instanceof Exception ex ? ex : new IOException(e));
 		}
+	}
+
+	/**
+	 * Resolve a clash with the existing {@code target} per the chosen conflict mode, prompting
+	 * under {@code ASK} (or for a read-only target when so configured).
+	 *
+	 * @return where and how to write the source, or {@code null} to leave it alone — skipped, not
+	 *         newer, or cancelled (in which case {@link #aborted} is set)
+	 */
+	private Placement resolveConflict(Path source, Path target) {
+
+		CopyOptions.ConflictMode mode = options.getConflictMode();
+		boolean readOnlyPrompt = options.isAskOnReadOnly() && !Files.isWritable(target);
+
+		if (mode == CopyOptions.ConflictMode.ASK || readOnlyPrompt) {
+			Resolution r = ask(source, target);
+			if (r == null || r.action() == Action.CANCEL) {
+				aborted = true;
+				return null;
+			}
+			return switch (r.action()) {
+				case APPEND -> new Placement(target, true);
+				case RENAME -> new Placement(r.renameTarget() != null
+						? TransferPaths.renameTarget(target, r.renameTarget())
+						: autoRename(target), false);
+				case OVERWRITE -> new Placement(target, false);
+				default -> null; // SKIP
+			};
+		}
+
+		return switch (mode) {
+			case APPEND -> new Placement(target, true);
+			case RENAME -> new Placement(autoRename(target), false);
+			case ONLY_NEWER -> isSourceNewer(source, target) ? new Placement(target, false) : null;
+			case OVERWRITE -> new Placement(target, false);
+			default -> null; // SKIP (ASK handled above)
+		};
+	}
+
+	/** Where a source is written once any clash is resolved, and whether it is appended there. */
+	private static final class Placement {
+
+		final Path target;
+		final boolean append;
+
+		Placement(Path target, boolean append) {
+			this.target = target;
+			this.append = append;
+		}
+	}
+
+	private void refuse(Path source, Path target, String reason) {
+		reportError(source, new FileSystemException(source.toString(), target.toString(), reason));
 	}
 
 	private Resolution ask(Path source, Path target) {

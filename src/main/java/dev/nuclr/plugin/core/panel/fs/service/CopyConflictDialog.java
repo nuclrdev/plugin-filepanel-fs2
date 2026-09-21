@@ -216,7 +216,7 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 				return;
 			}
 			try {
-				result[0] = Path.of(text);
+				result[0] = TransferPaths.renameTarget(target, Path.of(text));
 				dialog.dispose();
 			} catch (RuntimeException ex) {
 				log.debug("Invalid rename target [{}]: {}", text, ex.getMessage());

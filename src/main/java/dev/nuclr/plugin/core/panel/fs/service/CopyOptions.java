@@ -69,10 +69,4 @@ public class CopyOptions {
 
 	/** Copy the link target's contents rather than re-creating the symbolic link. */
 	private boolean copySymbolicLinkContents;
-
-	/** Reserved: copy into several destinations in one pass (UI flag only for now). */
-	private boolean multipleDestinations;
-
-	/** Reserved: apply the name filter (UI flag only for now). */
-	private boolean useFilter;
 }

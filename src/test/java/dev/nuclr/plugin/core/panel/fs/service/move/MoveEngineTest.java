@@ -366,6 +366,89 @@ class MoveEngineTest {
 	}
 
 	@Test
+	void refusesToMoveFolderIntoItsOwnSubfolder(@TempDir Path dir) throws IOException {
+		Path tree = Files.createDirectory(dir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path sub = Files.createDirectory(tree.resolve("sub"));
+		Files.createDirectory(sub.resolve("tree")); // an existing target would otherwise take the merge path
+
+		RecordingCallback cb = new RecordingCallback();
+		boolean ok = new MoveEngine(options(sub, MoveOptions.ConflictMode.ASK), cb, null, (s, e) -> true, false)
+				.move(List.of(tree));
+
+		assertTrue(ok);
+		assertEquals(1, cb.errorCount);
+		assertEquals("1", Files.readString(tree.resolve("top.txt")));
+		assertTrue(Files.isDirectory(sub), "the subfolder must not be moved into itself");
+	}
+
+	@Test
+	void renamingFolderOverExistingFileKeepsTheFile(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path tree = Files.createDirectory(srcDir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("tree"), "a file, not a folder");
+
+		MoveEngine.ConflictResolver resolver = (s, t) -> Resolution.of(Action.RENAME);
+		boolean ok = new MoveEngine(options(dstDir, MoveOptions.ConflictMode.ASK), new RecordingCallback(), resolver,
+				(s, e) -> true, false).move(List.of(tree));
+
+		assertTrue(ok);
+		assertEquals("a file, not a folder", Files.readString(dstDir.resolve("tree")));
+		assertEquals("1", Files.readString(dstDir.resolve("tree (2)/top.txt")));
+		assertFalse(Files.exists(tree));
+	}
+
+	@Test
+	void refusesRenameThatPointsBackIntoTheMovedFolder(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path tree = Files.createDirectory(srcDir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path sub = Files.createDirectory(tree.resolve("sub"));
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("tree"), "a file, not a folder");
+
+		MoveEngine.ConflictResolver resolver = (s, t) -> new Resolution(Action.RENAME, sub);
+		RecordingCallback cb = new RecordingCallback();
+		new MoveEngine(options(dstDir, MoveOptions.ConflictMode.ASK), cb, resolver, (s, e) -> true, false)
+				.move(List.of(tree));
+
+		assertEquals(1, cb.errorCount);
+		assertEquals("1", Files.readString(tree.resolve("top.txt")), "the source must stay where it was");
+		assertFalse(Files.exists(sub.resolve("top.txt")));
+	}
+
+	@Test
+	void bareRenameNameLandsBesideTheConflictingTarget(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "NEW");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("a.txt"), "OLD");
+
+		MoveEngine.ConflictResolver resolver = (s, t) -> new Resolution(Action.RENAME, Path.of("renamed.txt"));
+		new MoveEngine(options(dstDir, MoveOptions.ConflictMode.ASK), new RecordingCallback(), resolver,
+				(s, e) -> true, false).move(List.of(file));
+
+		assertEquals("NEW", Files.readString(dstDir.resolve("renamed.txt")));
+		assertEquals("OLD", Files.readString(dstDir.resolve("a.txt")));
+	}
+
+	@Test
+	void skipModeKeepsFileBlockingAMovedFolder(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path tree = Files.createDirectory(srcDir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("tree"), "a file, not a folder");
+
+		new MoveEngine(options(dstDir, MoveOptions.ConflictMode.SKIP), new RecordingCallback(), null, (s, e) -> true,
+				false).move(List.of(tree));
+
+		assertEquals("a file, not a folder", Files.readString(dstDir.resolve("tree")));
+		assertTrue(Files.exists(tree.resolve("top.txt")), "a skipped folder stays where it was");
+	}
+
+	@Test
 	void autoRenameFindsFirstFreeSibling(@TempDir Path dir) throws IOException {
 		Files.writeString(dir.resolve("nuclr.jar"), "x");
 		Files.writeString(dir.resolve("nuclr (2).jar"), "x");

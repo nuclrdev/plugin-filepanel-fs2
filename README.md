@@ -38,10 +38,9 @@ A non-modal search dialog and a streaming results window.
 | Containing text | `Text`, `Regex` or `Hex` match modes |
 | Text options | Case sensitive · whole word · invert match · explicit charset |
 | Scope | Current folder · Both panels · Marked items · Volumes · Custom path |
-| Traversal | Subfolders · follow symlinks · search inside archives · include hidden |
-| `.gitignore` | Optionally skip ignored files, using JGit's real `IgnoreNode` semantics |
+| Traversal | Subfolders · follow symlinks · include hidden |
+| `.gitignore` | Optionally skip ignored files, using JGit's real `IgnoreNode` semantics — each repository by its own rules, including repositories found below the search root |
 | Filters | Modified from/to, min/max size |
-| Windows | Optionally search NTFS alternate data streams |
 
 Results stream into a window as they are found. From there you can jump to a hit (the panel navigates to its parent folder and puts the cursor on it) or open the **whole result set in a temporary panel**, where the hits behave like ordinary entries — copy, move, delete, view and edit all work, and `..` returns to the folder the search started from.
 
@@ -130,12 +129,12 @@ Most dependencies are provided by Nuclr Commander at runtime. Only the two `comp
 
 | Library | Version | Scope | Purpose |
 |---|---|---|---|
-| `dev.nuclr:platform-sdk` | `3.0.2` | provided | Nuclr platform interfaces |
+| `dev.nuclr:platform-sdk` | `5.0.0` | provided | Nuclr platform interfaces |
 | `commons-io` | `2.22.0` | provided | Human-readable sizes, file utilities |
 | `org.apache.commons:commons-lang3` | `3.20.0` | provided | OS detection |
 | `com.formdev:flatlaf` (+ `flatlaf-extras`) | `3.7.1` | provided | Themed Swing components |
 | `org.slf4j:slf4j-api` | `2.0.17` | provided | Logging |
-| `org.projectlombok:lombok` | `1.18.42` | provided | Annotations |
+| `org.projectlombok:lombok` | `1.18.46` | provided | Annotations |
 | `org.eclipse.jgit` | `6.10.0` | **bundled** | `.gitignore` semantics for Find File |
 | `org.jabref:mslinks` | `1.2` | **bundled** | Windows `.lnk` parsing |
 

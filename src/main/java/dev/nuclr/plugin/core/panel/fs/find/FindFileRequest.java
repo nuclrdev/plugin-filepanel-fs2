@@ -62,7 +62,6 @@ public final class FindFileRequest {
 
 	private final boolean searchSubfolders;
 	private final boolean followSymlinks;
-	private final boolean searchArchives;
 	private final boolean includeHidden;
 	private final boolean respectGitignore;
 
@@ -71,7 +70,6 @@ public final class FindFileRequest {
 	private final Long minSizeBytes;
 	private final Long maxSizeBytes;
 	private final Charset encoding;
-	private final boolean searchNtfsAlternateStreams;
 
 	private FindFileRequest(Builder b) {
 		this.namePattern = b.namePattern == null ? "" : b.namePattern.trim();
@@ -87,7 +85,6 @@ public final class FindFileRequest {
 
 		this.searchSubfolders = b.searchSubfolders;
 		this.followSymlinks = b.followSymlinks;
-		this.searchArchives = b.searchArchives;
 		this.includeHidden = b.includeHidden;
 		this.respectGitignore = b.respectGitignore;
 
@@ -96,7 +93,6 @@ public final class FindFileRequest {
 		this.minSizeBytes = b.minSizeBytes;
 		this.maxSizeBytes = b.maxSizeBytes;
 		this.encoding = b.encoding == null ? StandardCharsets.UTF_8 : b.encoding;
-		this.searchNtfsAlternateStreams = b.searchNtfsAlternateStreams;
 	}
 
 	public String getNamePattern() {
@@ -144,10 +140,6 @@ public final class FindFileRequest {
 		return followSymlinks;
 	}
 
-	public boolean isSearchArchives() {
-		return searchArchives;
-	}
-
 	public boolean isIncludeHidden() {
 		return includeHidden;
 	}
@@ -174,10 +166,6 @@ public final class FindFileRequest {
 
 	public Charset getEncoding() {
 		return encoding;
-	}
-
-	public boolean isSearchNtfsAlternateStreams() {
-		return searchNtfsAlternateStreams;
 	}
 
 	/** {@code true} when a content match should be applied (the "Containing" field is non-blank). */
@@ -207,10 +195,8 @@ public final class FindFileRequest {
 				&& invertMatch == other.invertMatch
 				&& searchSubfolders == other.searchSubfolders
 				&& followSymlinks == other.followSymlinks
-				&& searchArchives == other.searchArchives
 				&& includeHidden == other.includeHidden
 				&& respectGitignore == other.respectGitignore
-				&& searchNtfsAlternateStreams == other.searchNtfsAlternateStreams
 				&& namePattern.equals(other.namePattern)
 				&& containingText.equals(other.containingText)
 				&& contentMode == other.contentMode
@@ -227,9 +213,8 @@ public final class FindFileRequest {
 	@Override
 	public int hashCode() {
 		return Objects.hash(namePattern, containingText, contentMode, caseSensitive, wholeWord, invertMatch,
-				scopeType, customPath, roots, searchSubfolders, followSymlinks, searchArchives, includeHidden,
-				respectGitignore, modifiedFrom, modifiedTo, minSizeBytes, maxSizeBytes, encoding,
-				searchNtfsAlternateStreams);
+				scopeType, customPath, roots, searchSubfolders, followSymlinks, includeHidden,
+				respectGitignore, modifiedFrom, modifiedTo, minSizeBytes, maxSizeBytes, encoding);
 	}
 
 	@Override
@@ -266,7 +251,6 @@ public final class FindFileRequest {
 
 		private boolean searchSubfolders = true;
 		private boolean followSymlinks;
-		private boolean searchArchives;
 		private boolean includeHidden;
 		private boolean respectGitignore;
 
@@ -275,7 +259,6 @@ public final class FindFileRequest {
 		private Long minSizeBytes;
 		private Long maxSizeBytes;
 		private Charset encoding = StandardCharsets.UTF_8;
-		private boolean searchNtfsAlternateStreams;
 
 		private Builder() {
 		}
@@ -335,11 +318,6 @@ public final class FindFileRequest {
 			return this;
 		}
 
-		public Builder searchArchives(boolean value) {
-			this.searchArchives = value;
-			return this;
-		}
-
 		public Builder includeHidden(boolean value) {
 			this.includeHidden = value;
 			return this;
@@ -372,11 +350,6 @@ public final class FindFileRequest {
 
 		public Builder encoding(Charset value) {
 			this.encoding = value;
-			return this;
-		}
-
-		public Builder searchNtfsAlternateStreams(boolean value) {
-			this.searchNtfsAlternateStreams = value;
 			return this;
 		}
 

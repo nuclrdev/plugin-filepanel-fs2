@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -170,14 +171,16 @@ public final class FindFileService implements AutoCloseable {
 		NameMatcher nameMatcher = new NameMatcher(request.getNamePattern());
 
 		try {
-			List<NuclrResource> roots = request.getRoots();
-			GitIgnoreMatcher ignore = request.isRespectGitignore() ? ignoreMatcherFor(roots) : null;
-
-			for (NuclrResource root : roots) {
+			for (NuclrResource root : request.getRoots()) {
 				if (handle.isCancelled()) {
 					break;
 				}
 				if (root.isFolder()) {
+					// Each root gets the matcher of its own working tree: roots from different
+					// repositories (both panels, marked items) must not share one repository's rules.
+					GitIgnoreMatcher ignore = request.isRespectGitignore()
+							? GitIgnoreProbe.probe(root).ignoreMatcher()
+							: null;
 					// Walk into the folder; the scope folder itself is not a result.
 					Set<Path> ancestors = new HashSet<>();
 					Path canonical = canonicalize(root.getPath());
@@ -202,14 +205,19 @@ public final class FindFileService implements AutoCloseable {
 		}
 	}
 
-	private GitIgnoreMatcher ignoreMatcherFor(List<NuclrResource> roots) {
-		for (NuclrResource root : roots) {
-			GitIgnoreProbe probe = GitIgnoreProbe.probe(root);
-			if (probe.isInsideWorkTree()) {
-				return probe.ignoreMatcher();
-			}
+	/**
+	 * The matcher to use below {@code directory}: a directory that is itself the root of a
+	 * working tree (a repository found while walking a volume, or a nested repository) takes
+	 * that tree's rules, as Git does; anywhere else the enclosing tree's matcher still applies.
+	 */
+	private static GitIgnoreMatcher ignoreMatcherBelow(NuclrResource directory, FindFileRequest request,
+			GitIgnoreMatcher inherited) {
+		Path path = directory.getPath();
+		if (!request.isRespectGitignore() || path == null || !Files.exists(path.resolve(".git"))) {
+			return inherited;
 		}
-		return null;
+		GitIgnoreMatcher own = GitIgnoreProbe.probe(path).ignoreMatcher();
+		return own != null ? own : inherited;
 	}
 
 	/**
@@ -271,6 +279,8 @@ public final class FindFileService implements AutoCloseable {
 			return;
 		}
 
+		GitIgnoreMatcher childIgnore = ignoreMatcherBelow(child, request, ignore);
+
 		Path canonical = canonicalize(child.getPath());
 		if (canonical != null) {
 			if (ancestors.contains(canonical)) {
@@ -280,11 +290,12 @@ public final class FindFileService implements AutoCloseable {
 			}
 			Set<Path> branchAncestors = new HashSet<>(ancestors);
 			branchAncestors.add(canonical);
-			walk(child, request, nameMatcher, contentMatcher, ignore, branchAncestors, visited, matched, listener,
-					handle);
+			walk(child, request, nameMatcher, contentMatcher, childIgnore, branchAncestors, visited, matched,
+					listener, handle);
 		} else {
 			// No local path to canonicalize (remote resource): descend without cycle tracking.
-			walk(child, request, nameMatcher, contentMatcher, ignore, ancestors, visited, matched, listener, handle);
+			walk(child, request, nameMatcher, contentMatcher, childIgnore, ancestors, visited, matched, listener,
+					handle);
 		}
 	}
 

@@ -100,7 +100,6 @@ public final class FindFileDialog extends JDialog {
 	// --- Scope chips ---
 	private final FlatToggleButton subfoldersChip = chip("Subfolders");
 	private final FlatToggleButton symlinksChip = chip("Symlinks");
-	private final FlatToggleButton archivesChip = chip("Archives");
 	private final FlatToggleButton hiddenChip = chip("Hidden");
 	private final FlatToggleButton gitignoreChip = chip(".gitignore");
 
@@ -294,7 +293,6 @@ public final class FindFileDialog extends JDialog {
 		JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 4));
 		chips.add(subfoldersChip);
 		chips.add(symlinksChip);
-		chips.add(archivesChip);
 		chips.add(hiddenChip);
 		chips.add(gitignoreChip);
 
@@ -479,7 +477,6 @@ public final class FindFileDialog extends JDialog {
 				.roots(roots)
 				.searchSubfolders(subfoldersChip.isSelected())
 				.followSymlinks(symlinksChip.isSelected())
-				.searchArchives(archivesChip.isSelected())
 				.includeHidden(hiddenChip.isSelected())
 				.respectGitignore(gitignoreChip.isSelected())
 				.modifiedFrom(parseDate(dateFromField.getText(), false))
@@ -594,7 +591,6 @@ public final class FindFileDialog extends JDialog {
 		order.add(browseButton);
 		order.add(subfoldersChip);
 		order.add(symlinksChip);
-		order.add(archivesChip);
 		order.add(hiddenChip);
 		order.add(gitignoreChip);
 		order.add(disclosureButton);

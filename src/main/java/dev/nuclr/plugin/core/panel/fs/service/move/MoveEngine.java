@@ -23,8 +23,8 @@ import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileStore;
+import java.nio.file.FileSystemException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
+import dev.nuclr.plugin.core.panel.fs.service.TransferPaths;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -179,6 +180,10 @@ public final class MoveEngine {
 			if (sameLocation(source, target)) {
 				return; // a directory moved onto itself: nothing to do (don't prompt per child)
 			}
+			if (TransferPaths.isSameOrInside(source, target)) {
+				refuse(source, target, "Cannot move a folder into itself");
+				return;
+			}
 			moveDirectory(source, target);
 		} else {
 			moveFile(source, target);
@@ -203,36 +208,12 @@ public final class MoveEngine {
 		Path effectiveTarget = target;
 
 		if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-			MoveOptions.ConflictMode mode = options.getConflictMode();
-			boolean readOnlyPrompt = options.isAskOnReadOnly() && !Files.isWritable(target);
-
-			if (mode == MoveOptions.ConflictMode.ASK || readOnlyPrompt) {
-				Resolution r = ask(source, target);
-				if (r == null || r.action() == Action.CANCEL) {
-					aborted = true;
-					return;
-				}
-				switch (r.action()) {
-					case SKIP -> { return; }
-					case APPEND -> append = true;
-					case RENAME -> effectiveTarget = r.renameTarget() != null ? r.renameTarget() : autoRename(target);
-					case OVERWRITE -> { /* fall through */ }
-					default -> { return; }
-				}
-			} else {
-				switch (mode) {
-					case SKIP -> { return; }
-					case APPEND -> append = true;
-					case RENAME -> effectiveTarget = autoRename(target);
-					case ONLY_NEWER -> {
-						if (!isSourceNewer(source, target)) {
-							return;
-						}
-					}
-					case OVERWRITE -> { /* fall through */ }
-					default -> { /* ASK handled above */ }
-				}
+			Placement placement = resolveConflict(source, target);
+			if (placement == null) {
+				return;
 			}
+			effectiveTarget = placement.target;
+			append = placement.append;
 		}
 
 		if (sameLocation(source, effectiveTarget)) {
@@ -306,17 +287,27 @@ public final class MoveEngine {
 				return;
 			}
 		} else if (!Files.isDirectory(target, LinkOption.NOFOLLOW_LINKS)) {
-			// A non-directory occupies the target name: route through the conflict prompt.
-			Resolution r = ask(source, target);
-			if (r == null || r.action() == Action.CANCEL) {
-				aborted = true;
+			// A non-directory occupies the target name: resolve it like any other clash.
+			Placement placement = resolveConflict(source, target);
+			if (placement == null) {
 				return;
 			}
-			if (r.action() == Action.SKIP) {
+			if (placement.append) {
+				refuse(source, target, "Cannot append a folder to a file");
+				return;
+			}
+			if (!placement.target.equals(target)) {
+				// Renamed: move the tree to the new name, leaving the existing file alone. A typed
+				// name can point back inside the source, which moveEntry's check never saw.
+				if (TransferPaths.isSameOrInside(source, placement.target)) {
+					refuse(source, placement.target, "Cannot move a folder into itself");
+					return;
+				}
+				moveDirectory(source, placement.target);
 				return;
 			}
 			try {
-				Files.deleteIfExists(target);
+				Files.delete(target); // overwrite: the folder replaces the file
 				Files.createDirectories(target);
 			} catch (IOException e) {
 				reportError(source, e);
@@ -380,6 +371,59 @@ public final class MoveEngine {
 			movedBytes += read;
 			cb.onProgress(movedBytes, totalBytes);
 		}
+	}
+
+	/**
+	 * Resolve a clash with the existing {@code target} per the chosen conflict mode, prompting
+	 * under {@code ASK} (or for a read-only target when so configured).
+	 *
+	 * @return where and how to move the source, or {@code null} to leave it alone — skipped, not
+	 *         newer, or cancelled (in which case {@link #aborted} is set)
+	 */
+	private Placement resolveConflict(Path source, Path target) {
+
+		MoveOptions.ConflictMode mode = options.getConflictMode();
+		boolean readOnlyPrompt = options.isAskOnReadOnly() && !Files.isWritable(target);
+
+		if (mode == MoveOptions.ConflictMode.ASK || readOnlyPrompt) {
+			Resolution r = ask(source, target);
+			if (r == null || r.action() == Action.CANCEL) {
+				aborted = true;
+				return null;
+			}
+			return switch (r.action()) {
+				case APPEND -> new Placement(target, true);
+				case RENAME -> new Placement(r.renameTarget() != null
+						? TransferPaths.renameTarget(target, r.renameTarget())
+						: autoRename(target), false);
+				case OVERWRITE -> new Placement(target, false);
+				default -> null; // SKIP
+			};
+		}
+
+		return switch (mode) {
+			case APPEND -> new Placement(target, true);
+			case RENAME -> new Placement(autoRename(target), false);
+			case ONLY_NEWER -> isSourceNewer(source, target) ? new Placement(target, false) : null;
+			case OVERWRITE -> new Placement(target, false);
+			default -> null; // SKIP (ASK handled above)
+		};
+	}
+
+	/** Where a source is moved once any clash is resolved, and whether it is appended there. */
+	private static final class Placement {
+
+		final Path target;
+		final boolean append;
+
+		Placement(Path target, boolean append) {
+			this.target = target;
+			this.append = append;
+		}
+	}
+
+	private void refuse(Path source, Path target, String reason) {
+		reportError(source, new FileSystemException(source.toString(), target.toString(), reason));
 	}
 
 	private Resolution ask(Path source, Path target) {

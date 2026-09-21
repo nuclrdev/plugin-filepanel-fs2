@@ -115,8 +115,6 @@ final class MoveDialog {
 
 		JCheckBox preserve = new JCheckBox("Preserve all timestamps");
 		JCheckBox symlink = new JCheckBox("Copy contents of symbolic links");
-		JCheckBox multiDest = new JCheckBox("Process multiple destinations");
-		JCheckBox useFilter = new JCheckBox("Use filter");
 
 		JPanel existingRow = new JPanel(new BorderLayout(8, 0));
 		existingRow.add(new JLabel("Already existing files:"), BorderLayout.WEST);
@@ -129,25 +127,21 @@ final class MoveDialog {
 		optionsPanel.add(askReadOnly);
 		optionsPanel.add(preserve);
 		optionsPanel.add(symlink);
-		optionsPanel.add(multiDest);
 
 		// --- buttons ---
 		JButton renameButton = new JButton("Rename");
-		JButton filterButton = new JButton("Filter");
 		JButton cancelButton = new JButton("Cancel");
 
 		final MoveOptions[] chosen = new MoveOptions[1];
 
 		renameButton.addActionListener(e -> {
-			MoveOptions opts = collect(destField, rCopy, rInherit, existing, askReadOnly, preserve, symlink, multiDest,
-					useFilter);
+			MoveOptions opts = collect(destField, rCopy, rInherit, existing, askReadOnly, preserve, symlink);
 			if (opts == null) {
 				return; // invalid destination; keep the dialog open
 			}
 			chosen[0] = opts;
 			dialog.dispose();
 		});
-		filterButton.addActionListener(e -> useFilter.setSelected(true));
 		cancelButton.addActionListener(e -> dialog.dispose());
 
 		dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
@@ -155,16 +149,12 @@ final class MoveDialog {
 
 		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
 		buttons.add(renameButton);
-		buttons.add(filterButton);
 		buttons.add(cancelButton);
-
-		JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-		filterPanel.add(useFilter);
 
 		JPanel body = new JPanel();
 		body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
 		body.setBorder(BorderFactory.createEmptyBorder(14, 16, 10, 16));
-		addStacked(body, destPanel, accessPanel, optionsPanel, filterPanel);
+		addStacked(body, destPanel, accessPanel, optionsPanel);
 
 		JPanel content = new JPanel(new BorderLayout(0, 10));
 		content.add(body, BorderLayout.CENTER);
@@ -216,8 +206,7 @@ final class MoveDialog {
 	}
 
 	private static MoveOptions collect(JTextField destField, JRadioButton rCopy, JRadioButton rInherit,
-			JComboBox<String> existing, JCheckBox askReadOnly, JCheckBox preserve, JCheckBox symlink,
-			JCheckBox multiDest, JCheckBox useFilter) {
+			JComboBox<String> existing, JCheckBox askReadOnly, JCheckBox preserve, JCheckBox symlink) {
 
 		String text = destField.getText() == null ? "" : destField.getText().trim();
 		if (text.isEmpty()) {
@@ -240,8 +229,6 @@ final class MoveDialog {
 		opts.setAskOnReadOnly(askReadOnly.isSelected());
 		opts.setPreserveTimestamps(preserve.isSelected());
 		opts.setCopySymbolicLinkContents(symlink.isSelected());
-		opts.setMultipleDestinations(multiDest.isSelected());
-		opts.setUseFilter(useFilter.isSelected());
 		return opts;
 	}
 

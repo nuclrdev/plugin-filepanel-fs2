@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -222,6 +223,183 @@ class CopyEngineTest {
 		Path renamed = CopyEngine.autoRename(dir.resolve("nuclr.jar"));
 
 		assertEquals("nuclr (3).jar", renamed.getFileName().toString());
+	}
+
+	/** F5 within one panel targets the source itself; Overwrite must not truncate it. */
+	@Test
+	void overwritingFileWithItselfLeavesItIntact(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "precious");
+
+		RecordingCallback cb = new RecordingCallback();
+		boolean ok = new CopyEngine(options(dir, CopyOptions.ConflictMode.OVERWRITE), cb, null, (s, e) -> true)
+				.copy(List.of(file));
+
+		assertTrue(ok);
+		assertEquals("precious", Files.readString(file));
+		assertEquals(1, cb.errorCount);
+	}
+
+	@Test
+	void appendingFileToItselfLeavesItIntact(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "precious");
+
+		new CopyEngine(options(dir, CopyOptions.ConflictMode.APPEND), new RecordingCallback(), null, (s, e) -> true)
+				.copy(List.of(file));
+
+		assertEquals("precious", Files.readString(file));
+	}
+
+	@Test
+	void renamingFileCopiedOntoItselfMakesADuplicate(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "precious");
+
+		boolean ok = new CopyEngine(options(dir, CopyOptions.ConflictMode.RENAME), new RecordingCallback(), null,
+				null).copy(List.of(file));
+
+		assertTrue(ok);
+		assertEquals("precious", Files.readString(file));
+		assertEquals("precious", Files.readString(dir.resolve("a (2).txt")));
+	}
+
+	@Test
+	void refusesToCopyFolderIntoItsOwnSubfolder(@TempDir Path dir) throws IOException {
+		Path tree = Files.createDirectory(dir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path sub = Files.createDirectory(tree.resolve("sub"));
+
+		RecordingCallback cb = new RecordingCallback();
+		boolean ok = new CopyEngine(options(sub, CopyOptions.ConflictMode.ASK), cb, null, (s, e) -> true)
+				.copy(List.of(tree));
+
+		assertTrue(ok);
+		assertEquals(1, cb.errorCount);
+		assertFalse(Files.exists(sub.resolve("tree")), "nothing may be copied into the source's own subtree");
+	}
+
+	@Test
+	void refusesToCopyFolderOntoItself(@TempDir Path dir) throws IOException {
+		Path tree = Files.createDirectory(dir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+
+		RecordingCallback cb = new RecordingCallback();
+		new CopyEngine(options(dir, CopyOptions.ConflictMode.OVERWRITE), cb, null, (s, e) -> true)
+				.copy(List.of(tree));
+
+		assertEquals(1, cb.errorCount);
+		assertEquals("1", Files.readString(tree.resolve("top.txt")));
+	}
+
+	@Test
+	void skipModeKeepsExistingTargetOfCopiedLink(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Path link = createLinkOrSkip(srcDir.resolve("a.txt"), Path.of("elsewhere.txt"));
+		Files.writeString(dstDir.resolve("a.txt"), "OLD");
+
+		boolean ok = new CopyEngine(options(dstDir, CopyOptions.ConflictMode.SKIP), new RecordingCallback(), null,
+				null).copy(List.of(link));
+
+		assertTrue(ok);
+		assertFalse(Files.isSymbolicLink(dstDir.resolve("a.txt")));
+		assertEquals("OLD", Files.readString(dstDir.resolve("a.txt")));
+	}
+
+	@Test
+	void renameModeCopiesLinkBesideExistingTarget(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Path link = createLinkOrSkip(srcDir.resolve("a.txt"), Path.of("elsewhere.txt"));
+		Files.writeString(dstDir.resolve("a.txt"), "OLD");
+
+		new CopyEngine(options(dstDir, CopyOptions.ConflictMode.RENAME), new RecordingCallback(), null, null)
+				.copy(List.of(link));
+
+		assertEquals("OLD", Files.readString(dstDir.resolve("a.txt")));
+		assertTrue(Files.isSymbolicLink(dstDir.resolve("a (2).txt")));
+	}
+
+	@Test
+	void renamingFolderOverExistingFileKeepsTheFile(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path tree = Files.createDirectory(srcDir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("tree"), "a file, not a folder");
+
+		CopyEngine.ConflictResolver resolver = (s, t) -> Resolution.of(Action.RENAME);
+		boolean ok = new CopyEngine(options(dstDir, CopyOptions.ConflictMode.ASK), new RecordingCallback(), resolver,
+				null).copy(List.of(tree));
+
+		assertTrue(ok);
+		assertEquals("a file, not a folder", Files.readString(dstDir.resolve("tree")));
+		assertEquals("1", Files.readString(dstDir.resolve("tree (2)/top.txt")));
+	}
+
+	@Test
+	void skipModeKeepsFileBlockingACopiedFolder(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path tree = Files.createDirectory(srcDir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("tree"), "a file, not a folder");
+
+		new CopyEngine(options(dstDir, CopyOptions.ConflictMode.SKIP), new RecordingCallback(), null, null)
+				.copy(List.of(tree));
+
+		assertEquals("a file, not a folder", Files.readString(dstDir.resolve("tree")));
+	}
+
+	@Test
+	void refusesRenameThatPointsBackIntoTheCopiedFolder(@TempDir Path dir) throws IOException {
+		Path tree = Files.createDirectory(dir.resolve("tree"));
+		Files.writeString(tree.resolve("top.txt"), "1");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("tree"), "a file, not a folder");
+
+		CopyEngine.ConflictResolver resolver = (s, t) -> new Resolution(Action.RENAME, tree.resolve("inside"));
+		RecordingCallback cb = new RecordingCallback();
+		new CopyEngine(options(dstDir, CopyOptions.ConflictMode.ASK), cb, resolver, (s, e) -> true)
+				.copy(List.of(tree));
+
+		assertEquals(1, cb.errorCount);
+		assertFalse(Files.exists(tree.resolve("inside")), "nothing may be copied into the source itself");
+	}
+
+	@Test
+	void bareRenameNameLandsBesideTheConflictingTarget(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("a.txt"), "NEW");
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Files.writeString(dstDir.resolve("a.txt"), "OLD");
+
+		CopyEngine.ConflictResolver resolver = (s, t) -> new Resolution(Action.RENAME, Path.of("renamed.txt"));
+		new CopyEngine(options(dstDir, CopyOptions.ConflictMode.ASK), new RecordingCallback(), resolver, null)
+				.copy(List.of(file));
+
+		assertEquals("NEW", Files.readString(dstDir.resolve("renamed.txt")));
+		assertEquals("OLD", Files.readString(dstDir.resolve("a.txt")));
+	}
+
+	@Test
+	void copiesLinkIntoFolderThatDoesNotExistYet(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path link = createLinkOrSkip(srcDir.resolve("a.lnk"), Path.of("elsewhere.txt"));
+		Path target = dir.resolve("new-folder").resolve("a.lnk");
+
+		boolean ok = new CopyEngine(options(target, CopyOptions.ConflictMode.ASK), new RecordingCallback(), null,
+				null).copy(List.of(link));
+
+		assertTrue(ok);
+		assertTrue(Files.isSymbolicLink(target));
+	}
+
+	/** Symbolic links need a privilege on Windows that a test run may not have. */
+	private static Path createLinkOrSkip(Path link, Path target) {
+		try {
+			return Files.createSymbolicLink(link, target);
+		} catch (IOException | UnsupportedOperationException e) {
+			Assumptions.abort("symbolic links unavailable: " + e.getMessage());
+			return null;
+		}
 	}
 
 	@Test

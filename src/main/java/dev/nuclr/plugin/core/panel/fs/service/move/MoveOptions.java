@@ -79,10 +79,4 @@ public class MoveOptions {
 
 	/** Move the link target's contents rather than relocating the symbolic link itself. */
 	private boolean copySymbolicLinkContents;
-
-	/** Reserved: move into several destinations in one pass (UI flag only for now). */
-	private boolean multipleDestinations;
-
-	/** Reserved: apply the name filter (UI flag only for now). */
-	private boolean useFilter;
 }
