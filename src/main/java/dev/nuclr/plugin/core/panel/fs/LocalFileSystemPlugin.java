@@ -759,11 +759,21 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 
 		if ("filepanel.path.opened".equals(actionType)) {
-			var opened = getSelectedResourcesForEvent(selectedResources, focusedResource).get(0);
+			// The entry under the cursor is the one being opened; marked entries elsewhere in the
+			// listing have nothing to do with it.
+			var opened = focusedResource != null
+					? focusedResource
+					: getSelectedResourcesForEvent(selectedResources, focusedResource).get(0);
 			log.info("Open action: {}", opened);
 			boolean external = Boolean.TRUE.equals(data == null ? null : data.get(OpenExternalKey));
 			try {
-				if (external) {
+				if (external && opened.isFolder()) {
+					// Shift+Enter on a folder: show it in the OS file manager. ".." stands for the
+					// folder being listed, so that is the one opened.
+					SystemOpen.open("..".equals(opened.getName()) && this.currentFolder != null
+							? this.currentFolder.getPath()
+							: opened.getPath());
+				} else if (external) {
 					// Shift+Enter: run it in its own console window instead of handing it to the
 					// OS file association, which for a .bat would open an editor rather than run it.
 					ExternalConsole.run(opened.getPath());
@@ -772,7 +782,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				}
 				SoundEvents.confirmation(context);
 			} catch (IOException | RuntimeException e) {
-				log.warn("Could not open {}{}", opened.getPath(), external ? " in a new console" : "", e);
+				log.warn("Could not open {}{}", opened.getPath(),
+						external ? opened.isFolder() ? " in the file manager" : " in a new console" : "", e);
 				SoundEvents.error(context);
 			}
 			return;
