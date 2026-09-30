@@ -44,6 +44,12 @@ public final class ExternalConsole {
 	/** Scripts older than this are swept on the next run; the console owning them is long gone. */
 	private static final Duration SCRIPT_RETENTION = Duration.ofHours(6);
 
+	/**
+	 * Suffix of the marker file that lets a Windows command script run exactly once. See
+	 * {@link #windowsCommandScript}.
+	 */
+	static final String PENDING_SUFFIX = ".pending";
+
 	private ExternalConsole() {
 	}
 
@@ -83,23 +89,18 @@ public final class ExternalConsole {
 			throw new IOException("Not a folder: " + cwd);
 		}
 
-		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-
-		if (os.contains("win")) {
-			start(cwd, windowsCommand(target, cwd).toArray(String[]::new));
-		} else if (os.contains("mac")) {
-			start(cwd, macCommand(target).toArray(String[]::new));
-		} else {
-			runLinux(target, cwd);
-		}
+		// On Windows the file is started from a run-once script rather than directly, for the
+		// reason given on windowsCommandScript: a restored Windows Terminal tab must not run it again.
+		launch(isWindows() ? writeScript(windowsExecutableScript(target, cwd)) : target, cwd);
 	}
 
 	/**
 	 * Run a command line in a new console window rooted at {@code workingDirectory}.
 	 *
 	 * <p>The line is written verbatim into a script for the platform's own console shell and
-	 * that script is handed to {@link #run(Path, Path)}, so a command line goes through the
-	 * one console launcher this plugin has rather than a second one of its own. Writing it to
+	 * that script is launched exactly as {@link #run(Path, Path)} launches a file, so a command
+	 * line goes through the one console launcher this plugin has rather than a second one of
+	 * its own. Writing it to
 	 * a script — instead of stuffing it into the launcher's argument list — is what keeps
 	 * quoting, pipes and redirections in the user's line intact: the shell that reads the
 	 * script is the only thing that ever parses it.
@@ -125,16 +126,44 @@ public final class ExternalConsole {
 			throw new IOException("Not a folder: " + cwd);
 		}
 
-		Path script = writeCommandScript(commandLine, cwd);
-		run(script, cwd);
+		launch(writeCommandScript(commandLine, cwd), cwd);
+	}
+
+	/** Start {@code target} in the platform's console, rooted at {@code workingDirectory}. */
+	private static void launch(Path target, Path workingDirectory) throws IOException {
+
+		String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+
+		if (os.contains("win")) {
+			start(workingDirectory, windowsCommand(target, workingDirectory).toArray(String[]::new));
+		} else if (os.contains("mac")) {
+			start(workingDirectory, macCommand(target).toArray(String[]::new));
+		} else {
+			runLinux(target, workingDirectory);
+		}
+	}
+
+	private static boolean isWindows() {
+		return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
 	}
 
 	/**
 	 * Materialise {@code commandLine} as a script the platform's console shell can run, in a
-	 * swept scratch folder. The file cannot be deleted once the console has it — the window
-	 * outlives the commander by design — so stale scripts are collected on the way in instead.
+	 * swept scratch folder.
 	 */
 	static Path writeCommandScript(String commandLine, Path workingDirectory) throws IOException {
+		return writeScript(isWindows()
+			? windowsCommandScript(commandLine, workingDirectory)
+			: posixCommandScript(commandLine, workingDirectory));
+	}
+
+	/**
+	 * Write {@code content} to a new script in the swept scratch folder. The file cannot be
+	 * deleted once the console has it — the window outlives the commander by design — so stale
+	 * scripts are collected on the way in instead. A Windows script is armed with its
+	 * {@link #PENDING_SUFFIX} marker so it runs once.
+	 */
+	private static Path writeScript(String content) throws IOException {
 
 		Path folder = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"), SCRIPT_FOLDER));
 		sweepStaleScripts(folder);
@@ -144,11 +173,11 @@ public final class ExternalConsole {
 		String suffix = windows ? ".cmd" : os.contains("mac") ? ".command" : ".sh";
 
 		Path script = Files.createTempFile(folder, "command-", suffix);
-		Files.writeString(script, windows
-			? windowsCommandScript(commandLine, workingDirectory)
-			: posixCommandScript(commandLine, workingDirectory));
+		Files.writeString(script, content);
 
-		if (!windows) {
+		if (windows) {
+			Files.createFile(Path.of(script + PENDING_SUFFIX));
+		} else {
 			script.toFile().setExecutable(true, true);
 		}
 		return script;
@@ -158,11 +187,46 @@ public final class ExternalConsole {
 	 * A batch file, run by the {@code cmd /k} the console launcher already starts. {@code cd /d}
 	 * is belt and braces next to {@code start /D}, and it also means the window is left in that
 	 * folder rather than wherever a {@code cd} in the user's own line took it.
+	 *
+	 * <p>The script runs only while its {@link #PENDING_SUFFIX} marker exists, and deletes the
+	 * marker before it runs anything. Windows Terminal set to reopen the previous session
+	 * restarts every tab it restores with the tab's original command line, so without this a
+	 * console left open from an earlier run would run its command a second time the next time
+	 * any console is launched.
 	 */
 	static String windowsCommandScript(String commandLine, Path workingDirectory) {
 		return "@echo off\r\n"
-			+ "cd /d \"" + workingDirectory + "\"\r\n"
+			+ windowsRunOnceGuard()
+			+ "cd /d \"" + batchText(workingDirectory) + "\"\r\n"
 			+ commandLine + "\r\n";
+	}
+
+	/**
+	 * The Shift+Enter script: the run-once guard, then the executable itself. Every line of its
+	 * own is {@code @}-prefixed instead of turning echo off, so a batch file started this way
+	 * echoes its commands exactly as it did when {@code cmd /k} ran it directly.
+	 */
+	static String windowsExecutableScript(Path executable, Path workingDirectory) {
+		return windowsRunOnceGuard()
+			+ "@cd /d \"" + batchText(workingDirectory) + "\"\r\n"
+			+ "@\"" + batchText(executable) + "\"\r\n";
+	}
+
+	/**
+	 * Stop unless this script's {@link #PENDING_SUFFIX} marker exists, and use the marker up.
+	 * The {@code @} prefixes keep the guard silent whether or not echo is on.
+	 */
+	private static String windowsRunOnceGuard() {
+		return "@if not exist \"%~f0" + PENDING_SUFFIX + "\" (\r\n"
+			+ "  echo This window was reopened from an earlier session, so its command was not run again.\r\n"
+			+ "  exit /b\r\n"
+			+ ")\r\n"
+			+ "@del \"%~f0" + PENDING_SUFFIX + "\"\r\n";
+	}
+
+	/** A path as literal text in a batch file, where a lone {@code %} would start a variable. */
+	private static String batchText(Path path) {
+		return path.toString().replace("%", "%%");
 	}
 
 	/**

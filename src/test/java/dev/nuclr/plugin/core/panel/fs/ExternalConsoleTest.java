@@ -1,6 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,6 +11,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 class ExternalConsoleTest {
@@ -95,6 +98,65 @@ class ExternalConsoleTest {
 		assertTrue(script.contains("cd /d \"" + dir + "\""), script);
 		assertTrue(script.contains("git reset --hard HEAD"), script);
 		assertTrue(script.startsWith("@echo off"), script);
+	}
+
+	@Test
+	@EnabledOnOs(OS.WINDOWS)
+	void aWindowsScriptRunsItsCommandOnlyOnce(@TempDir Path dir) throws Exception {
+		// Parentheses and spaces in the path, as in "Program Files (x86)", must not break the
+		// guard's if-block.
+		Path folder = Files.createDirectories(dir.resolve("my (x86) scripts"));
+		Path script = folder.resolve("command.cmd");
+		Files.writeString(script, ExternalConsole.windowsCommandScript("echo RAN-THE-COMMAND", folder));
+		Files.createFile(Path.of(script + ExternalConsole.PENDING_SUFFIX));
+
+		String first = runBatch(script);
+		assertTrue(first.contains("RAN-THE-COMMAND"), first);
+		assertFalse(Files.exists(Path.of(script + ExternalConsole.PENDING_SUFFIX)), "the marker is used up");
+
+		// What Windows Terminal does when it restores a tab: start the same script again.
+		String replay = runBatch(script);
+		assertFalse(replay.contains("RAN-THE-COMMAND"), replay);
+		assertTrue(replay.contains("not run again"), replay);
+	}
+
+	@Test
+	@EnabledOnOs(OS.WINDOWS)
+	void aShiftEnterScriptRunsTheExecutableOnceAndLeavesItsEchoAlone(@TempDir Path dir) throws Exception {
+		// "%" would start a variable and "(" would end the guard's block if either leaked through.
+		Path folder = Files.createDirectories(dir.resolve("builds (x86) 100%"));
+		Path bat = folder.resolve("build 100%.bat");
+		Files.writeString(bat, "echo BUILD-RAN\r\n");
+		Path script = dir.resolve("wrapper.cmd");
+		Files.writeString(script, ExternalConsole.windowsExecutableScript(bat, folder));
+		Files.createFile(Path.of(script + ExternalConsole.PENDING_SUFFIX));
+
+		String first = runBatch(script);
+		assertTrue(first.contains("BUILD-RAN"), first);
+		// Echo is still on for the user's batch file, as it was under a plain cmd /k ...
+		assertTrue(first.contains(">echo BUILD-RAN"), first);
+		// ... while the wrapper's own lines stay out of sight.
+		assertFalse(first.contains("if not exist"), first);
+		assertFalse(first.contains("PENDING") || first.contains(".pending"), first);
+
+		String replay = runBatch(script);
+		assertFalse(replay.contains("BUILD-RAN"), replay);
+		assertTrue(replay.contains("not run again"), replay);
+	}
+
+	@Test
+	void writingAWindowsScriptArmsItsRunOnceMarker(@TempDir Path dir) throws Exception {
+		Path script = ExternalConsole.writeCommandScript("git status", dir);
+		boolean windows = System.getProperty("os.name", "").toLowerCase().contains("win");
+
+		assertEquals(windows, Files.exists(Path.of(script + ExternalConsole.PENDING_SUFFIX)));
+	}
+
+	private static String runBatch(Path script) throws Exception {
+		Process process = new ProcessBuilder("cmd.exe", "/c", script.toString()).redirectErrorStream(true).start();
+		String output = new String(process.getInputStream().readAllBytes());
+		process.waitFor();
+		return output;
 	}
 
 	@Test
