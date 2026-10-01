@@ -215,11 +215,16 @@ public final class ExternalConsole {
 	/**
 	 * Stop unless this script's {@link #PENDING_SUFFIX} marker exists, and use the marker up.
 	 * The {@code @} prefixes keep the guard silent whether or not echo is on.
+	 *
+	 * <p>A replay ends the hosting {@code cmd /k} outright ({@code exit 0}, not {@code exit /b}):
+	 * Windows Terminal restores the old window whenever it starts fresh, which is exactly when the
+	 * next console is launched, and a window left at a prompt reads as a second console opening.
+	 * A clean exit lets the terminal close the restored window on its own.
 	 */
 	private static String windowsRunOnceGuard() {
 		return "@if not exist \"%~f0" + PENDING_SUFFIX + "\" (\r\n"
 			+ "  echo This window was reopened from an earlier session, so its command was not run again.\r\n"
-			+ "  exit /b\r\n"
+			+ "  exit 0\r\n"
 			+ ")\r\n"
 			+ "@del \"%~f0" + PENDING_SUFFIX + "\"\r\n";
 	}
