@@ -55,4 +55,20 @@ class CopyServiceTest {
 		assertEquals(List.of(), CopyService.regularFiles(null));
 		assertEquals(List.of(), CopyService.regularFiles(List.of()));
 	}
+
+	@Test
+	void existingPathsKeepsFoldersAndDropsMissingPathsNullsAndDuplicates(@TempDir Path dir) throws IOException {
+		Path file = Files.writeString(dir.resolve("file.txt"), "content");
+		Path folder = Files.createDirectory(dir.resolve("folder"));
+
+		List<Path> result = CopyService.existingPaths(Arrays.asList(
+				file,
+				folder,
+				dir.resolve("missing.txt"),
+				null,
+				folder.resolve("..").resolve("file.txt")));
+
+		assertEquals(List.of(file.toAbsolutePath().normalize(), folder.toAbsolutePath().normalize()), result);
+		assertEquals(List.of(), CopyService.existingPaths(null));
+	}
 }

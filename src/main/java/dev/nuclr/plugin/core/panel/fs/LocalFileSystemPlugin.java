@@ -818,6 +818,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			return;
 		}
 
+		if (PluginActions.FILES_DROP.equals(actionType)) {
+			processFilesDrop(data);
+			return;
+		}
+
 		if (PluginActions.CLIPBOARD_COPY_FILES.equals(actionType)) {
 			ClipboardService.copyFiles(getSelectedResourcesForEvent(selectedResources, focusedResource), context);
 			return;
@@ -1039,6 +1044,36 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 					e.getClass().getSimpleName());
 		}
 		return false;
+	}
+
+	/**
+	 * Copy files dropped from another application into the folder row they landed on (".."
+	 * stands for the parent, which is its path), or into the current folder.
+	 */
+	void processFilesDrop(Map<String, Object> data) {
+		if (data == null) {
+			return;
+		}
+		try {
+			data.put(PluginActions.FILES_DROP_ACCEPTED, true);
+		} catch (UnsupportedOperationException ignored) {
+			log.debug("Drop payload is immutable; the host will not see the drop accepted.");
+		}
+		var dropped = new ArrayList<Path>();
+		if (data.get(PluginActions.FILES_DROP_FILES) instanceof List<?> files) {
+			for (Object file : files) {
+				if (file instanceof Path path) {
+					dropped.add(path);
+				}
+			}
+		}
+		NuclrResource target = data.get(PluginActions.FILES_DROP_TARGET) instanceof NuclrResource folder
+				&& folder.getPath() != null && Files.isDirectory(folder.getPath())
+						? folder
+						: this.currentFolder;
+		if (new CopyService().dropFiles(target, dropped, this.context)) {
+			emitFolderRefreshes(List.of(target.getPath()), List.of());
+		}
 	}
 
 	void processClipboardPasteFiles(List<Path> clipboardFiles) {

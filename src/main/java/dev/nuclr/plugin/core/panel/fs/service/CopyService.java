@@ -22,6 +22,7 @@ import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -137,14 +138,29 @@ public class CopyService {
 	 */
 	public boolean pasteFiles(NuclrResource currentFolder, List<Path> clipboardPaths,
 			NuclrPluginContext context) {
+		return copyInto(currentFolder, regularFiles(clipboardPaths), context);
+	}
 
-		Path destination = currentFolder != null ? currentFolder.getPath() : null;
+	/**
+	 * Copy files and folders dropped from another application into {@code targetFolder}.
+	 * Like paste there is no setup dialog; conflicts still prompt, the transfer remains
+	 * cancellable, and a source dropped into its own folder is copied beside itself.
+	 *
+	 * @return {@code true} when a copy run completed, {@code false} when there
+	 *         was nothing valid to copy or the operation was cancelled
+	 */
+	public boolean dropFiles(NuclrResource targetFolder, List<Path> droppedPaths, NuclrPluginContext context) {
+		return copyInto(targetFolder, existingPaths(droppedPaths), context);
+	}
+
+	private boolean copyInto(NuclrResource folder, List<Path> sources, NuclrPluginContext context) {
+
+		Path destination = folder != null ? folder.getPath() : null;
 		if (destination == null || !Files.isDirectory(destination)) {
 			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
 			return false;
 		}
 
-		List<Path> sources = regularFiles(clipboardPaths);
 		if (sources.isEmpty()) {
 			return false;
 		}
@@ -180,6 +196,21 @@ public class CopyService {
 		}
 		return paths.stream()
 				.filter(path -> path != null && Files.isRegularFile(path))
+				.map(path -> path.toAbsolutePath().normalize())
+				.distinct()
+				.toList();
+	}
+
+	/**
+	 * Return normalized, distinct paths that exist (files, folders or links) from an untrusted
+	 * dropped path list. A link is kept even when its target is gone; the engine copies links.
+	 */
+	public static List<Path> existingPaths(List<Path> paths) {
+		if (paths == null || paths.isEmpty()) {
+			return List.of();
+		}
+		return paths.stream()
+				.filter(path -> path != null && Files.exists(path, LinkOption.NOFOLLOW_LINKS))
 				.map(path -> path.toAbsolutePath().normalize())
 				.distinct()
 				.toList();

@@ -26,6 +26,21 @@ final class PluginActions {
 	/** Host-dispatched paste action. Must match Commander's action protocol value. */
 	static final String CLIPBOARD_PASTE = "clipboard.paste";
 
+	/**
+	 * Host-dispatched drop of files from another application. Must match Commander's action
+	 * protocol value, as must the payload keys below.
+	 */
+	static final String FILES_DROP = "files.drop";
+
+	/** {@link #FILES_DROP} payload: the dropped local files, as a {@code List<Path>}. */
+	static final String FILES_DROP_FILES = "files";
+
+	/** {@link #FILES_DROP} payload: the folder row dropped on, or {@code null} for the current folder. */
+	static final String FILES_DROP_TARGET = "target";
+
+	/** {@link #FILES_DROP} answer: {@code true} tells the host the drop was taken. */
+	static final String FILES_DROP_ACCEPTED = "result.drop.accepted";
+
 	/** Host-dispatched Delete-key action. Must match Commander's action protocol value. */
 	static final String DELETE = "delete";
 
