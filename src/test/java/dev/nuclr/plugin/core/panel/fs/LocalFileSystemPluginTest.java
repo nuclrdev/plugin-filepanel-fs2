@@ -677,6 +677,17 @@ class LocalFileSystemPluginTest {
 	}
 
 	@Test
+	void clipboardPasteText_ignoresRelativePaths() {
+		LocalFileSystemPlugin p = newPlugin();
+
+		// "." and "src" exist relative to the test's working directory, not to the panel's folder.
+		assertFalse(p.processClipboardPasteText("."));
+		assertFalse(p.processClipboardPasteText("src"));
+
+		assertTrue(ctx.eventBus.emissionsOfType("filepanel.path.opened").isEmpty());
+	}
+
+	@Test
 	void handleMessage_isInert() {
 		LocalFileSystemPlugin p = newPlugin();
 		assertDoesNotThrow(() -> p.handleMessage(null, "whatever", new HashMap<>(), null));

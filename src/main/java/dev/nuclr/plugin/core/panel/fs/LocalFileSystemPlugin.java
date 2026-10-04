@@ -7,6 +7,7 @@ import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH
 
 import java.awt.KeyboardFocusManager;
 import java.awt.Window;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
@@ -45,6 +46,7 @@ import dev.nuclr.plugin.core.panel.fs.find.FindFileService;
 import dev.nuclr.plugin.core.panel.fs.find.FindResultsWindow;
 import dev.nuclr.plugin.core.panel.fs.find.LocalResourceNavigator;
 import dev.nuclr.plugin.core.panel.fs.service.Alerts;
+import dev.nuclr.plugin.core.panel.fs.service.ClipboardPasteService;
 import dev.nuclr.plugin.core.panel.fs.service.ClipboardService;
 import dev.nuclr.plugin.core.panel.fs.service.CopyService;
 import dev.nuclr.plugin.core.panel.fs.service.CreateFileService;
@@ -812,7 +814,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		}
 
 		if (PluginActions.CLIPBOARD_PASTE.equals(actionType)) {
-			processClipboardPaste();
+			processClipboardPaste(data);
 			return;
 		}
 
@@ -946,18 +948,65 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				|| "filepanel.deletePermanent".equals(actionType);
 	}
 
-	private void processClipboardPaste() {
+	private void processClipboardPaste(Map<String, Object> data) {
 		List<Path> clipboardFiles = CopyService.regularFiles(ClipboardService.readFiles());
 		if (!clipboardFiles.isEmpty()) {
 			processClipboardPasteFiles(clipboardFiles);
 			return;
 		}
-		processClipboardPasteText(ClipboardService.readText());
+		String text = ClipboardService.readText();
+		if (processClipboardPasteText(text)) {
+			return;
+		}
+		// An image wins over plain text: apps such as Excel put both on the clipboard,
+		// and screenshot tools and browsers offer the image as the main content.
+		BufferedImage image = ClipboardService.readImage();
+		if (image != null) {
+			selectPastedFile(ClipboardPasteService.pasteImage(currentFolder, image, context), data);
+			return;
+		}
+		processClipboardPasteTextAsFile(text, data);
 	}
 
-	void processClipboardPasteText(String clipboardText) {
-		if (clipboardText == null) {
+	/**
+	 * Save text that names no existing path as a new file, after the user confirms its name.
+	 * Text written like a path is taken as a mistyped one and only gets an error sound.
+	 */
+	void processClipboardPasteTextAsFile(String clipboardText, Map<String, Object> data) {
+		if (clipboardText == null || clipboardText.isBlank()) {
 			return;
+		}
+		if (ClipboardPasteService.looksLikePath(clipboardText)) {
+			SoundEvents.error(context);
+			return;
+		}
+		selectPastedFile(ClipboardPasteService.pasteText(currentFolder, clipboardText, context), data);
+	}
+
+	/** Refresh the panel with a file created by a paste selected. */
+	private void selectPastedFile(Path created, Map<String, Object> data) {
+		if (created == null) {
+			return;
+		}
+		boolean selectsCreated = false;
+		if (data != null) {
+			try {
+				data.put(RESULT_REFRESH, true);
+				data.put(RESULT_REFRESH_SELECTED_RESOURCE, Helper.build(context, created));
+				selectsCreated = true;
+			} catch (UnsupportedOperationException ignored) {
+				log.debug("Paste event payload is immutable; pasted file will not be selected.");
+			}
+		}
+		// The host refreshes this panel from the payload; otherwise refresh it via the bus too.
+		emitFolderRefreshes(currentFolderPaths(), selectsCreated ? List.of(this.uuid()) : List.of());
+		SoundEvents.confirmation(context);
+	}
+
+	/** @return {@code true} when the text named an existing folder or file and was acted on */
+	boolean processClipboardPasteText(String clipboardText) {
+		if (clipboardText == null) {
+			return false;
 		}
 
 		String pathText = clipboardText.strip();
@@ -965,23 +1014,31 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			pathText = pathText.substring(1, pathText.length() - 1).strip();
 		}
 		if (pathText.isEmpty()) {
-			return;
+			return false;
 		}
 
 		try {
 			Path path = Path.of(pathText);
+			// A relative path would resolve against Commander's working directory, not the panel's
+			// folder, so a pasted word such as "target" could open an unrelated folder.
+			if (!path.isAbsolute()) {
+				return false;
+			}
 			if (Files.isDirectory(path)) {
 				Path folder = path.toAbsolutePath().normalize();
 				context.getEventBus().emit(this, "filepanel.path.opened",
 						Map.of("resource", Helper.build(context, folder)));
+				return true;
 			} else if (Files.isRegularFile(path)) {
 				processClipboardPasteFiles(List.of(path));
+				return true;
 			}
 		} catch (RuntimeException e) {
 			// Do not log clipboard text: paths can contain private user information.
 			log.debug("Ignoring clipboard text that is not a valid local path ({})",
 					e.getClass().getSimpleName());
 		}
+		return false;
 	}
 
 	void processClipboardPasteFiles(List<Path> clipboardFiles) {

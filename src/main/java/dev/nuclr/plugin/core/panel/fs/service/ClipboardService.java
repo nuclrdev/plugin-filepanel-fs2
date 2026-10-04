@@ -19,6 +19,8 @@ package dev.nuclr.plugin.core.panel.fs.service;
 
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.KeyboardFocusManager;
 import java.awt.Point;
 import java.awt.Toolkit;
@@ -28,12 +30,14 @@ import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.swing.ImageIcon;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 
@@ -287,6 +291,46 @@ public final class ClipboardService {
 			log.debug("Failed to read files from the clipboard: {}", e.getClass().getSimpleName());
 			return List.of();
 		}
+	}
+
+	/**
+	 * Read image data from the system clipboard, returning {@code null} when no
+	 * image is available or the clipboard cannot currently be accessed.
+	 */
+	public static BufferedImage readImage() {
+		try {
+			Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+			Transferable contents = clipboard.getContents(null);
+			if (contents == null || !contents.isDataFlavorSupported(DataFlavor.imageFlavor)) {
+				return null;
+			}
+			Object value = contents.getTransferData(DataFlavor.imageFlavor);
+			return value instanceof Image image ? toBufferedImage(image) : null;
+		} catch (java.io.IOException | UnsupportedFlavorException | RuntimeException e) {
+			log.debug("Failed to read an image from the clipboard: {}", e.getClass().getSimpleName());
+			return null;
+		}
+	}
+
+	static BufferedImage toBufferedImage(Image image) {
+		if (image instanceof BufferedImage buffered) {
+			return buffered;
+		}
+		// Clipboard images may be toolkit images that are still loading; ImageIcon waits for them.
+		Image loaded = new ImageIcon(image).getImage();
+		int width = loaded.getWidth(null);
+		int height = loaded.getHeight(null);
+		if (width <= 0 || height <= 0) {
+			return null;
+		}
+		var buffered = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		Graphics2D g = buffered.createGraphics();
+		try {
+			g.drawImage(loaded, 0, 0, null);
+		} finally {
+			g.dispose();
+		}
+		return buffered;
 	}
 
 	private static boolean setClipboardContents(Transferable contents) {
