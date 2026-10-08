@@ -18,6 +18,7 @@
 package dev.nuclr.plugin.core.panel.fs.service;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -53,10 +54,9 @@ public class MakeNewFolderService {
 			Alerts.showError(context, DialogTitle, "The current item is not a folder.");
 			return null;
 		}
-		if (!Files.isWritable(parent)) {
-			Alerts.showError(context, DialogTitle, "The current folder is not writable.");
-			return null;
-		}
+		// No Files.isWritable pre-check: it demands full write access (incl. adding files), but
+		// creating a subfolder only needs "create folders" - e.g. a Windows drive root like D:\
+		// grants Authenticated Users exactly that. Let createDirectory decide.
 
 		String folderName = promptFolderName(context);
 		if (folderName == null) {
@@ -88,6 +88,13 @@ public class MakeNewFolderService {
 			}
 			SoundEvents.confirmation(context);
 			return target;
+		} catch (AccessDeniedException e) {
+			log.warn("Access denied creating folder [{}] in [{}]", folderName, parent);
+			if (callback != null) {
+				callback.onError(folderName, e);
+			}
+			Alerts.showError(context, DialogTitle, "Access denied: cannot create a folder here.");
+			return null;
 		} catch (InvalidPathException | IOException | UnsupportedOperationException e) {
 			log.warn("Failed to create folder [{}] in [{}]: {}", folderName, parent, e.getMessage(), e);
 			if (callback != null) {
