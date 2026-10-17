@@ -20,15 +20,14 @@ package dev.nuclr.plugin.core.panel.fs.service;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.KeyboardFocusManager;
-import java.awt.event.HierarchyEvent;
 
 import javax.swing.BorderFactory;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 /**
@@ -61,21 +60,24 @@ final class PasteTextDialog {
 		content.add(name, BorderLayout.NORTH);
 		content.add(previewArea, BorderLayout.CENTER);
 
-		fileName.addHierarchyListener(event -> {
-			if ((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0 && fileName.isShowing()) {
-				SwingUtilities.invokeLater(() -> {
-					fileName.requestFocusInWindow();
-					// Select the name but not the extension, so typing replaces just the name.
-					int dot = suggestedName.lastIndexOf('.');
-					fileName.select(0, dot > 0 ? dot : suggestedName.length());
-				});
-			}
-		});
+		// JOptionPane gives the initial focus to its default button in selectInitialValue(), once
+		// the dialog is shown, so an earlier focus request loses. Take that hook (see CreateFileDialog).
+		JOptionPane pane = new JOptionPane(content, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION) {
+			private static final long serialVersionUID = 1L;
 
-		int choice = JOptionPane.showConfirmDialog(
-				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(),
-				content, "Paste text", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-		if (choice != JOptionPane.OK_OPTION) {
+			@Override
+			public void selectInitialValue() {
+				fileName.requestFocusInWindow();
+				// Select the name but not the extension, so typing replaces just the name.
+				int dot = suggestedName.lastIndexOf('.');
+				fileName.select(0, dot > 0 ? dot : suggestedName.length());
+			}
+		};
+		JDialog dialog = pane.createDialog(
+				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(), "Paste text");
+		dialog.setVisible(true);
+		dialog.dispose();
+		if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue())) {
 			return null;
 		}
 		return fileName.getText();

@@ -18,9 +18,9 @@
 package dev.nuclr.plugin.core.panel.fs.service;
 
 import java.awt.KeyboardFocusManager;
-import java.awt.event.HierarchyEvent;
 
 import javax.swing.BorderFactory;
+import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -41,19 +41,23 @@ final class CreateFileDialog {
 		content.add(new JLabel("File name:"), java.awt.BorderLayout.NORTH);
 		content.add(fileName, java.awt.BorderLayout.CENTER);
 
-		fileName.addHierarchyListener(event -> {
-			if ((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0 && fileName.isShowing()) {
-				javax.swing.SwingUtilities.invokeLater(() -> {
-					fileName.requestFocusInWindow();
-					fileName.selectAll();
-				});
-			}
-		});
+		// JOptionPane hands the initial focus to its default button through selectInitialValue(),
+		// called once the dialog is shown - after any focus request made earlier, which is why a
+		// HierarchyListener lost the race and keystrokes went nowhere. Take that hook instead.
+		JOptionPane pane = new JOptionPane(content, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION) {
+			private static final long serialVersionUID = 1L;
 
-		int choice = JOptionPane.showConfirmDialog(
-				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(),
-				content, "Create file", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-		if (choice != JOptionPane.OK_OPTION) {
+			@Override
+			public void selectInitialValue() {
+				fileName.requestFocusInWindow();
+				fileName.selectAll();
+			}
+		};
+		JDialog dialog = pane.createDialog(
+				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(), "Create file");
+		dialog.setVisible(true);
+		dialog.dispose();
+		if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue())) {
 			return null;
 		}
 		return fileName.getText();
