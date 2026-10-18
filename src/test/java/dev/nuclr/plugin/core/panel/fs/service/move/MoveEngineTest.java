@@ -51,6 +51,23 @@ class MoveEngineTest {
 		return opts;
 	}
 
+	/** A move cancelled mid-append restores the target's own bytes and keeps the source. */
+	@Test
+	void cancelMidAppendRestoresTargetAndKeepsSource(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Path big = Files.write(srcDir.resolve("big.bin"), new byte[300 * 1024]); // several buffers
+		Path existing = Files.writeString(dstDir.resolve("big.bin"), "original");
+
+		RecordingCallback cb = new RecordingCallback();
+		cb.cancelAfterProgress = 1;
+		new MoveEngine(options(dstDir, MoveOptions.ConflictMode.APPEND), cb, null, (s, e) -> true, false)
+				.move(List.of(big));
+
+		assertEquals("original", Files.readString(existing));
+		assertEquals(300 * 1024, Files.size(big), "the source must survive a cancelled move");
+	}
+
 	/** Move a single file into a destination folder: it lands there and the source is gone. */
 	@Test
 	void movesSingleFileIntoFolderAndRemovesSource(@TempDir Path dir) throws IOException {

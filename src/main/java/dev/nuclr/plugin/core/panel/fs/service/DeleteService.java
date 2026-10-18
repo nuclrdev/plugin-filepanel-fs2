@@ -27,6 +27,8 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 
+import org.apache.commons.lang3.SystemUtils;
+
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
 import dev.nuclr.platform.plugin.NuclrResource;
 import lombok.extern.slf4j.Slf4j;
@@ -35,8 +37,9 @@ import lombok.extern.slf4j.Slf4j;
  * Performs the actual deletion of local files/folders for the FS panel plugin.
  *
  * <p>Safe delete delegates to the operating system's Trash/Recycle Bin through
- * {@link Desktop#moveToTrash}. It never falls back to physical deletion: if the desktop API is
- * unavailable or rejects the move, the item is left in place and the failure is reported.
+ * {@link Desktop#moveToTrash}, or on Linux without desktop support to the freedesktop.org Trash
+ * ({@link FreedesktopTrash}). It never falls back to physical deletion: if no trash is available
+ * or the move is rejected, the item is left in place and the failure is reported.
  * Permanent delete is recursive and <strong>junction/symlink safe</strong>: a reparse point is
  * unlinked itself and never descended into, so deleting e.g. {@code C:\Documents and Settings}
  * can never destroy {@code C:\Users}.
@@ -167,24 +170,29 @@ public final class DeleteService {
 	}
 
 	private static TrashOperation systemTrash() {
-		if (!Desktop.isDesktopSupported()) {
-			return unavailableTrash();
-		}
-
-		try {
-			Desktop desktop = Desktop.getDesktop();
-			if (!desktop.isSupported(Desktop.Action.MOVE_TO_TRASH)) {
-				return unavailableTrash();
-			}
-			return path -> {
-				if (!desktop.moveToTrash(path.toFile())) {
-					throw new IOException("The operating system could not move the item to Trash or Recycle Bin");
+		if (Desktop.isDesktopSupported()) {
+			try {
+				Desktop desktop = Desktop.getDesktop();
+				if (desktop.isSupported(Desktop.Action.MOVE_TO_TRASH)) {
+					return path -> {
+						if (!desktop.moveToTrash(path.toFile())) {
+							throw new IOException("The operating system could not move the item to Trash or Recycle Bin");
+						}
+					};
 				}
-			};
-		} catch (RuntimeException e) {
-			log.warn("Could not initialise the operating system trash integration", e);
-			return unavailableTrash();
+			} catch (RuntimeException e) {
+				log.warn("Could not initialise the operating system trash integration", e);
+			}
 		}
+		// Linux without a GTK/GIO desktop behind the JVM: Desktop has no trash, but the
+		// freedesktop.org Trash every Linux file manager reads is just a folder layout.
+		if (SystemUtils.IS_OS_LINUX) {
+			FreedesktopTrash trash = FreedesktopTrash.forCurrentUser();
+			if (trash != null) {
+				return trash;
+			}
+		}
+		return unavailableTrash();
 	}
 
 	private static TrashOperation unavailableTrash() {

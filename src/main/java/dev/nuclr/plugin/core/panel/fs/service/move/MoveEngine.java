@@ -40,6 +40,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import dev.nuclr.platform.plugin.NuclrPluginCallback;
+import dev.nuclr.plugin.core.panel.fs.service.PartialTarget;
 import dev.nuclr.plugin.core.panel.fs.service.TransferPaths;
 import lombok.extern.slf4j.Slf4j;
 
@@ -344,33 +345,49 @@ public final class MoveEngine {
 
 	/** Stream the source into a fresh target, honouring cancellation and reporting byte progress. */
 	private void writeBytes(Path source, Path target) throws IOException {
+		long lengthBefore = PartialTarget.before(target, false);
+		boolean complete;
 		try (InputStream in = Files.newInputStream(source);
 				OutputStream out = Files.newOutputStream(target, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
 						StandardOpenOption.TRUNCATE_EXISTING)) {
-			pump(in, out);
+			complete = pump(in, out);
+		}
+		if (!complete) {
+			PartialTarget.discard(target, lengthBefore);
 		}
 	}
 
 	/** Append the source bytes to the end of an existing target, then leave the source for deletion. */
 	private void appendBytes(Path source, Path target) throws IOException {
+		long lengthBefore = PartialTarget.before(target, true);
+		boolean complete;
 		try (InputStream in = Files.newInputStream(source);
 				OutputStream out = Files.newOutputStream(target, StandardOpenOption.CREATE, StandardOpenOption.WRITE,
 						StandardOpenOption.APPEND)) {
-			pump(in, out);
+			complete = pump(in, out);
+		}
+		if (!complete) {
+			PartialTarget.discard(target, lengthBefore);
 		}
 	}
 
-	private void pump(InputStream in, OutputStream out) throws IOException {
+	/**
+	 * Copies until done or cancelled; {@code false} means cancelled part-way. The caller then
+	 * discards the partial target - the source is intact, since it is only deleted after a
+	 * complete copy.
+	 */
+	private boolean pump(InputStream in, OutputStream out) throws IOException {
 		byte[] buffer = new byte[BUFFER];
 		int read;
 		while ((read = in.read(buffer)) >= 0) {
 			if (isCancelled()) {
-				return; // leaves a partial target and the intact source; acceptable on user cancel
+				return false;
 			}
 			out.write(buffer, 0, read);
 			movedBytes += read;
 			cb.onProgress(movedBytes, totalBytes);
 		}
+		return true;
 	}
 
 	/**

@@ -61,6 +61,34 @@ class CopyEngineTest {
 	}
 
 	@Test
+	void cancelMidFileLeavesNoPartialCopy(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Path big = Files.write(srcDir.resolve("big.bin"), new byte[300 * 1024]); // several buffers
+
+		RecordingCallback cb = new RecordingCallback();
+		cb.cancelAfterProgress = 1; // cancel once the first buffer is written
+		new CopyEngine(options(dstDir, CopyOptions.ConflictMode.ASK), cb, null, null).copy(List.of(big));
+
+		assertFalse(Files.exists(dstDir.resolve("big.bin")), "a cancelled copy must not leave a truncated file");
+		assertEquals(300 * 1024, Files.size(big));
+	}
+
+	@Test
+	void cancelMidAppendRestoresTheOriginalBytes(@TempDir Path dir) throws IOException {
+		Path srcDir = Files.createDirectory(dir.resolve("src"));
+		Path dstDir = Files.createDirectory(dir.resolve("dst"));
+		Path big = Files.write(srcDir.resolve("big.bin"), new byte[300 * 1024]);
+		Path existing = Files.writeString(dstDir.resolve("big.bin"), "original");
+
+		RecordingCallback cb = new RecordingCallback();
+		cb.cancelAfterProgress = 1;
+		new CopyEngine(options(dstDir, CopyOptions.ConflictMode.APPEND), cb, null, null).copy(List.of(big));
+
+		assertEquals("original", Files.readString(existing));
+	}
+
+	@Test
 	void singleFileToNonDirectoryDestinationRenamesInsteadOfCreatingFolder(@TempDir Path dir) throws IOException {
 		Path srcDir = Files.createDirectory(dir.resolve("src"));
 		Path file = Files.writeString(srcDir.resolve("a.txt"), "hello");

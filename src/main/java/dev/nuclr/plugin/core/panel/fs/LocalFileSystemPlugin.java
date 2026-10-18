@@ -9,6 +9,7 @@ import java.awt.KeyboardFocusManager;
 import java.awt.Window;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
@@ -508,6 +509,11 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 						return;
 					visitor.accept(Helper.build(context, child));
 				}
+			} catch (AccessDeniedException e) {
+				// An unreadable folder is an everyday condition (a search walks into one), not a
+				// fault: one line, as the recursive branch's visitFileFailed logs it.
+				log.warn("Skipping inaccessible folder {}: permission denied", folder.getFullPath());
+				throw e;
 			} catch (IOException e) {
 				log.error("Error listing {}: {}", folder.getFullPath(), e.getMessage(), e);
 				throw e;

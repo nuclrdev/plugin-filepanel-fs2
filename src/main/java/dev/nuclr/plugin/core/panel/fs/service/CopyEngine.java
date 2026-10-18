@@ -283,6 +283,8 @@ public final class CopyEngine {
 				: new StandardOpenOption[] { StandardOpenOption.CREATE, StandardOpenOption.WRITE,
 						StandardOpenOption.TRUNCATE_EXISTING };
 
+		long lengthBefore = PartialTarget.before(target, append);
+		boolean cancelled = false;
 		try (InputStream in = Files.newInputStream(source);
 				OutputStream out = Files.newOutputStream(target, openOptions)) {
 
@@ -290,12 +292,17 @@ public final class CopyEngine {
 			int read;
 			while ((read = in.read(buffer)) >= 0) {
 				if (isCancelled()) {
-					return; // leaves a partial file; acceptable on user cancel
+					cancelled = true;
+					break;
 				}
 				out.write(buffer, 0, read);
 				copiedBytes += read;
 				cb.onProgress(copiedBytes, totalBytes);
 			}
+		}
+		if (cancelled) {
+			// Not a truncated file under the real name: delete it, or cut an append back.
+			PartialTarget.discard(target, lengthBefore);
 		}
 	}
 
