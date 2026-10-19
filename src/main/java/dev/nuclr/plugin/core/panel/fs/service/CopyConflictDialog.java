@@ -136,7 +136,10 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 				dialog.dispose();
 				return;
 			}
-			Path newTarget = promptRename(owner, target);
+			// Owned by the warning, not by the window behind it: a prompt owned by the progress
+			// dialog hands the focus back there on closing - a window the modal warning blocks -
+			// and the file list was left with no keyboard focus after the copy.
+			Path newTarget = promptRename(dialog, target);
 			if (newTarget == null) {
 				return; // back to the warning dialog
 			}
