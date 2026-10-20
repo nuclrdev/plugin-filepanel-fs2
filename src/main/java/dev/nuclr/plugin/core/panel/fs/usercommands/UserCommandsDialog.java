@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.usercommands;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -72,7 +74,8 @@ public class UserCommandsDialog extends JDialog {
 
 	private static final long serialVersionUID = 1L;
 
-	private static final String[] Columns = { "Key", "Name", "Command", "Working Directory" };
+	private static final String[] ColumnKeys = { "usercommands.column.key", "usercommands.column.name",
+			"usercommands.column.command", "usercommands.column.working_directory" };
 
 	/** Action-map keys for the dialog's own five commands. */
 	private static final String RunAction = "usercommands.run";
@@ -115,7 +118,7 @@ public class UserCommandsDialog extends JDialog {
 	public UserCommandsDialog(Window owner, List<UserCommand> commands, Path panelDirectory,
 			Consumer<List<UserCommand>> onSave, Consumer<UserCommand> onRun, NuclrPluginContext context) {
 
-		super(owner, "User Commands", ModalityType.APPLICATION_MODAL);
+		super(owner, tr("usercommands.dialog.title"), ModalityType.APPLICATION_MODAL);
 
 		this.commands = new ArrayList<>(commands == null ? List.of() : commands);
 		this.panelDirectory = panelDirectory;
@@ -168,17 +171,17 @@ public class UserCommandsDialog extends JDialog {
 		monospaced.setFont(new Font(Font.MONOSPACED, Font.PLAIN, table.getFont().getSize()));
 		table.getColumnModel().getColumn(2).setCellRenderer(monospaced);
 
-		runButton.setText("Run (Enter)");
+		runButton.setText(tr("usercommands.button.run"));
 		runButton.addActionListener(e -> runSelected());
 		FlatButton addButton = new FlatButton();
-		addButton.setText("Add (Insert)");
+		addButton.setText(tr("usercommands.button.add"));
 		addButton.addActionListener(e -> addCommand());
-		editButton.setText("Edit (F4)");
+		editButton.setText(tr("usercommands.button.edit"));
 		editButton.addActionListener(e -> editSelected());
-		deleteButton.setText("Delete (Del)");
+		deleteButton.setText(tr("usercommands.button.delete"));
 		deleteButton.addActionListener(e -> deleteSelected());
 		FlatButton closeButton = new FlatButton();
-		closeButton.setText("Close (Esc)");
+		closeButton.setText(tr("usercommands.button.close"));
 		closeButton.addActionListener(e -> close());
 
 		// The list is keyboard-first: leaving the buttons out of the focus cycle keeps the table
@@ -384,12 +387,12 @@ public class UserCommandsDialog extends JDialog {
 
 		@Override
 		public int getColumnCount() {
-			return Columns.length;
+			return ColumnKeys.length;
 		}
 
 		@Override
 		public String getColumnName(int column) {
-			return Columns[column];
+			return tr(ColumnKeys[column]);
 		}
 
 		@Override
@@ -406,7 +409,7 @@ public class UserCommandsDialog extends JDialog {
 				case 2 -> command.command();
 				// An empty working directory is not missing information — it is the instruction
 				// to use whatever folder the panel is showing, so say so rather than leaving a gap.
-				default -> command.hasWorkingDirectory() ? command.workingDirectory() : "(current panel folder)";
+				default -> command.hasWorkingDirectory() ? command.workingDirectory() : tr("usercommands.working_directory.current_panel");
 			};
 		}
 	}

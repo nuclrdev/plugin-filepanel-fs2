@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.usercommands;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -80,7 +82,7 @@ public class UserCommandEditDialog extends JDialog {
 	private final FlatButton browseButton = new FlatButton();
 	private final ShortcutField shortcutField;
 	private final FlatButton clearShortcutButton = new FlatButton();
-	private final JCheckBox confirmationCheckBox = new JCheckBox("Ask for confirmation before execution");
+	private final JCheckBox confirmationCheckBox = new JCheckBox(tr("usercommands.edit.confirmation"));
 
 	private final transient List<UserCommand> existing;
 	private final transient int editingIndex;
@@ -104,7 +106,7 @@ public class UserCommandEditDialog extends JDialog {
 	public UserCommandEditDialog(Window owner, UserCommand initial, List<UserCommand> existing, int editingIndex,
 			Path panelDirectory, NuclrPluginContext context) {
 
-		super(owner, editingIndex < 0 ? "Add User Command" : "Edit User Command", ModalityType.APPLICATION_MODAL);
+		super(owner, editingIndex < 0 ? tr("usercommands.edit.title.add") : tr("usercommands.edit.title.edit"), ModalityType.APPLICATION_MODAL);
 
 		this.existing = existing == null ? List.of() : existing;
 		this.editingIndex = editingIndex;
@@ -115,19 +117,19 @@ public class UserCommandEditDialog extends JDialog {
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
 		nameField.setColumns(28);
-		nameField.setPlaceholderText("Git Status");
+		nameField.setPlaceholderText(tr("usercommands.edit.name.placeholder"));
 		commandField.setColumns(28);
 		commandField.setPlaceholderText("git status");
 		commandField.setFont(new Font(Font.MONOSPACED, Font.PLAIN, commandField.getFont().getSize()));
 		workingDirectoryField.setColumns(28);
-		workingDirectoryField.setPlaceholderText("Current panel folder");
+		workingDirectoryField.setPlaceholderText(tr("usercommands.edit.working_directory.placeholder"));
 
 		browseButton.setText("…");
-		browseButton.setToolTipText("Choose a folder");
+		browseButton.setToolTipText(tr("usercommands.edit.browse.tooltip"));
 		browseButton.addActionListener(e -> chooseWorkingDirectory());
 
-		clearShortcutButton.setText("Clear");
-		clearShortcutButton.setToolTipText("Remove the shortcut key");
+		clearShortcutButton.setText(tr("usercommands.edit.clear_shortcut"));
+		clearShortcutButton.setToolTipText(tr("usercommands.edit.clear_shortcut.tooltip"));
 		clearShortcutButton.addActionListener(e -> {
 			shortcutField.setShortcut(null);
 			updateClearEnabled();
@@ -159,14 +161,14 @@ public class UserCommandEditDialog extends JDialog {
 		form.setBorder(BorderFactory.createEmptyBorder(14, 16, 8, 16));
 
 		int row = 0;
-		addRow(form, row++, "Name:", nameField, null);
-		addRow(form, row++, "Command:", commandField, null);
-		addRow(form, row++, "Working directory:", workingDirectoryField, browseButton);
-		addRow(form, row++, "Shortcut:", shortcutField, clearShortcutButton);
+		addRow(form, row++, tr("usercommands.edit.label.name"), nameField, null);
+		addRow(form, row++, tr("usercommands.edit.label.command"), commandField, null);
+		addRow(form, row++, tr("usercommands.edit.label.working_directory"), workingDirectoryField, browseButton);
+		addRow(form, row++, tr("usercommands.edit.label.shortcut"), shortcutField, clearShortcutButton);
 
 		FlatLabel hint = new FlatLabel();
 		hint.setLabelType(FlatLabel.LabelType.small);
-		hint.setText("Shortcut keys work only while the User Commands list is open.");
+		hint.setText(tr("usercommands.edit.shortcut_hint"));
 		var hintConstraints = new GridBagConstraints();
 		hintConstraints.gridx = 1;
 		hintConstraints.gridy = row++;
@@ -184,11 +186,11 @@ public class UserCommandEditDialog extends JDialog {
 		form.add(confirmationCheckBox, checkConstraints);
 
 		FlatButton okButton = new FlatButton();
-		okButton.setText("OK");
+		okButton.setText(tr("common.ok"));
 		okButton.addActionListener(e -> commit());
 
 		FlatButton cancelButton = new FlatButton();
-		cancelButton.setText("Cancel");
+		cancelButton.setText(tr("common.cancel"));
 		cancelButton.addActionListener(e -> cancel());
 
 		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -278,7 +280,7 @@ public class UserCommandEditDialog extends JDialog {
 
 		JFileChooser chooser = new JFileChooser();
 		chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-		chooser.setDialogTitle("Choose the working directory");
+		chooser.setDialogTitle(tr("usercommands.edit.chooser.title"));
 		startingFolder().ifPresent(folder -> chooser.setCurrentDirectory(folder.toFile()));
 
 		SoundEvents.popup(context);
@@ -343,6 +345,6 @@ public class UserCommandEditDialog extends JDialog {
 
 	private void showValidationError(String message) {
 		SoundEvents.error(context);
-		JOptionPane.showMessageDialog(this, message, "User Commands", JOptionPane.WARNING_MESSAGE);
+		JOptionPane.showMessageDialog(this, message, tr("usercommands.dialog.title"), JOptionPane.WARNING_MESSAGE);
 	}
 }

@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.usercommands;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -45,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UserCommandRunner {
 
-	private static final String DialogTitle = "User Commands";
+	private static final String DialogTitleKey = "usercommands.dialog.title";
 
 	private final NuclrPluginContext context;
 
@@ -78,7 +80,7 @@ public class UserCommandRunner {
 
 		Optional<Path> resolved = resolveWorkingDirectory(command, panelDirectory == null ? null : panelDirectory.get());
 		if (resolved.isEmpty()) {
-			Alerts.showError(context, DialogTitle, workingDirectoryProblem(command));
+			Alerts.showError(context, tr(DialogTitleKey), workingDirectoryProblem(command));
 			return false;
 		}
 
@@ -94,9 +96,8 @@ public class UserCommandRunner {
 			} catch (IOException | RuntimeException e) {
 				log.warn("Could not run user command [{}] in {}: {}", command.command(), workingDirectory,
 						e.getMessage(), e);
-				Alerts.showError(context, DialogTitle,
-						"Could not run the command:\n\n" + command.command() + "\n\n"
-								+ (e.getMessage() != null ? e.getMessage() : e.toString()));
+				Alerts.showError(context, tr(DialogTitleKey), tr("usercommands.error.could_not_run",
+						command.command(), e.getMessage() != null ? e.getMessage() : e.toString()));
 			}
 		});
 		return true;
@@ -134,10 +135,8 @@ public class UserCommandRunner {
 	/** The message explaining which of the two folders could not be used. */
 	private String workingDirectoryProblem(UserCommand command) {
 		if (command.hasWorkingDirectory()) {
-			return "The working directory for \"" + command.name() + "\" is not a folder:\n\n"
-					+ command.workingDirectory();
+			return tr("usercommands.error.working_directory_not_folder", command.name(), command.workingDirectory());
 		}
-		return "\"" + command.name() + "\" has no working directory of its own, "
-				+ "and the current panel folder could not be used.";
+		return tr("usercommands.error.no_working_directory", command.name());
 	}
 }

@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.find;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
@@ -98,9 +100,9 @@ public final class FindFileDialog extends JDialog {
 	private final JPanel customPathPanel = new JPanel(new GridBagLayout());
 
 	// --- Scope chips ---
-	private final FlatToggleButton subfoldersChip = chip("Subfolders");
-	private final FlatToggleButton symlinksChip = chip("Symlinks");
-	private final FlatToggleButton hiddenChip = chip("Hidden");
+	private final FlatToggleButton subfoldersChip = chip(tr("find.chip.subfolders"));
+	private final FlatToggleButton symlinksChip = chip(tr("find.chip.symlinks"));
+	private final FlatToggleButton hiddenChip = chip(tr("find.chip.hidden"));
 	private final FlatToggleButton gitignoreChip = chip(".gitignore");
 
 	// --- More filters ---
@@ -124,7 +126,7 @@ public final class FindFileDialog extends JDialog {
 	 * @param context scope inputs and plugin-agnostic collaborators
 	 */
 	public FindFileDialog(Window owner, FindFileContext context) {
-		super(owner, "Find File", ModalityType.MODELESS);
+		super(owner, tr("find.dialog.title"), ModalityType.MODELESS);
 		this.context = context;
 
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -168,7 +170,7 @@ public final class FindFileDialog extends JDialog {
 
 	private JComponent buildNameRow() {
 		FlatLabel label = new FlatLabel();
-		label.setText("Name");
+		label.setText(tr("find.label.name"));
 		label.setDisplayedMnemonic('N');
 		label.setLabelFor(nameField);
 
@@ -186,7 +188,7 @@ public final class FindFileDialog extends JDialog {
 
 	private JComponent buildContainingBlock() {
 		FlatLabel label = new FlatLabel();
-		label.setText("Containing");
+		label.setText(tr("find.label.containing"));
 		label.setDisplayedMnemonic('C');
 		label.setLabelFor(containingField);
 
@@ -209,13 +211,13 @@ public final class FindFileDialog extends JDialog {
 		header.add(segment, java.awt.BorderLayout.EAST);
 
 		monospace(containingField);
-		containingField.setPlaceholderText("text to find inside files (optional)");
+		containingField.setPlaceholderText(tr("find.placeholder.containing"));
 		containingField.getDocument().addDocumentListener(onChange(this::updateFindEnabled));
 
 		// Trailing Aa / ab / ! toggles live in the field's trailing-component slot.
-		configureTrailingToggle(caseToggle, "Aa", "Case sensitive");
-		configureTrailingToggle(wholeWordToggle, "ab", "Whole word");
-		configureTrailingToggle(invertToggle, "!", "Invert match");
+		configureTrailingToggle(caseToggle, "Aa", tr("find.tooltip.case_sensitive"));
+		configureTrailingToggle(wholeWordToggle, "ab", tr("find.tooltip.whole_word"));
+		configureTrailingToggle(invertToggle, "!", tr("find.tooltip.invert_match"));
 		JPanel trailing = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
 		trailing.setOpaque(false);
 		trailing.add(caseToggle);
@@ -235,7 +237,7 @@ public final class FindFileDialog extends JDialog {
 
 	private JComponent buildWhereBlock() {
 		FlatLabel label = new FlatLabel();
-		label.setText("Where");
+		label.setText(tr("find.label.where"));
 		label.setDisplayedMnemonic('W');
 		label.setLabelFor(whereCombo);
 
@@ -260,8 +262,8 @@ public final class FindFileDialog extends JDialog {
 
 		// Inline custom-path expansion (hidden until "Custom path…" is chosen).
 		monospace(customPathField);
-		customPathField.setPlaceholderText("path or plugin URI (sftp://…, zip:/…!/…)");
-		browseButton.setText("Browse…");
+		customPathField.setPlaceholderText(tr("find.placeholder.custom_path"));
+		browseButton.setText(tr("find.button.browse"));
 		browseButton.setMnemonic('B');
 		browseButton.addActionListener(e -> onBrowse());
 
@@ -298,7 +300,7 @@ public final class FindFileDialog extends JDialog {
 
 		JPanel row = new JPanel(new java.awt.BorderLayout(8, 0));
 		FlatLabel west = new FlatLabel();
-		west.setText("Scope");
+		west.setText(tr("find.label.scope"));
 		west.setPreferredSize(new Dimension(90, west.getPreferredSize().height));
 		row.add(west, java.awt.BorderLayout.WEST);
 		row.add(chips, java.awt.BorderLayout.CENTER);
@@ -306,7 +308,7 @@ public final class FindFileDialog extends JDialog {
 	}
 
 	private JComponent buildMoreFilters() {
-		disclosureButton.setText("▸ More filters");
+		disclosureButton.setText("▸ " + tr("find.button.more_filters"));
 		disclosureButton.setButtonType(ButtonType.borderless);
 		disclosureButton.setMnemonic('M');
 		disclosureButton.addActionListener(e -> toggleMoreFilters());
@@ -315,9 +317,9 @@ public final class FindFileDialog extends JDialog {
 		int row = 0;
 
 		gc.gridy = row++;
-		moreFiltersPanel.add(labeled("Date modified", dateFromField, "from (yyyy-MM-dd)", dateToField, "to"), gc);
+		moreFiltersPanel.add(labeled(tr("find.filter.date_modified"), dateFromField, tr("find.filter.date_from"), dateToField, tr("find.filter.date_to")), gc);
 		gc.gridy = row++;
-		moreFiltersPanel.add(labeled("Size (bytes)", sizeMinField, "min", sizeMaxField, "max"), gc);
+		moreFiltersPanel.add(labeled(tr("find.filter.size"), sizeMinField, tr("find.filter.size_min"), sizeMaxField, tr("find.filter.size_max")), gc);
 
 		moreFiltersPanel.setVisible(false);
 		moreFiltersPanel.setBorder(BorderFactory.createEmptyBorder(4, 8, 0, 0));
@@ -334,13 +336,13 @@ public final class FindFileDialog extends JDialog {
 	}
 
 	private JComponent buildFooter() {
-		findButton.setText("Find");
+		findButton.setText(tr("find.button.find"));
 		findButton.setMnemonic('F');
 		findButton.setButtonType(ButtonType.none);
 		findButton.addActionListener(e -> doFind());
 
 		FlatButton cancel = new FlatButton();
-		cancel.setText("Cancel");
+		cancel.setText(tr("common.cancel"));
 		cancel.addActionListener(e -> cancelDialog());
 
 		JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -396,7 +398,7 @@ public final class FindFileDialog extends JDialog {
 	private void toggleMoreFilters() {
 		boolean show = !moreFiltersPanel.isVisible();
 		moreFiltersPanel.setVisible(show);
-		disclosureButton.setText((show ? "▾" : "▸") + " More filters");
+		disclosureButton.setText((show ? "▾" : "▸") + " " + tr("find.button.more_filters"));
 		pack();
 	}
 
@@ -447,7 +449,7 @@ public final class FindFileDialog extends JDialog {
 			request = collectRequest();
 		} catch (IllegalArgumentException e) {
 			SoundEvents.warning(context.getPluginContext());
-			JOptionPane.showMessageDialog(this, e.getMessage(), "Invalid search", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(this, e.getMessage(), tr("find.error.invalid_search"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 		if (context.getOnSubmit() != null) {
@@ -499,15 +501,15 @@ public final class FindFileDialog extends JDialog {
 			case CUSTOM_PATH -> {
 				String text = customPathField.getText().trim();
 				if (text.isEmpty() || context.getPathParser() == null) {
-					throw new IllegalArgumentException("Enter a custom path to search");
+					throw new IllegalArgumentException(tr("find.error.enter_custom_path"));
 				}
 				NuclrResource parsed = context.getPathParser().parse(text)
-						.orElseThrow(() -> new IllegalArgumentException("Cannot resolve path: " + text));
+						.orElseThrow(() -> new IllegalArgumentException(tr("find.error.cannot_resolve_path", text)));
 				roots.add(parsed);
 			}
 		}
 		if (roots.isEmpty()) {
-			throw new IllegalArgumentException("No locations to search for the selected scope");
+			throw new IllegalArgumentException(tr("find.error.no_locations"));
 		}
 		return roots;
 	}
@@ -532,7 +534,7 @@ public final class FindFileDialog extends JDialog {
 		try {
 			return LocalDate.parse(text.trim(), DATE_FMT);
 		} catch (RuntimeException e) {
-			throw new IllegalArgumentException("Date must be yyyy-MM-dd: " + text);
+			throw new IllegalArgumentException(tr("find.error.bad_date", text));
 		}
 	}
 
@@ -551,7 +553,7 @@ public final class FindFileDialog extends JDialog {
 		try {
 			return Long.parseLong(text.trim());
 		} catch (NumberFormatException e) {
-			throw new IllegalArgumentException("Size must be a whole number of bytes: " + text);
+			throw new IllegalArgumentException(tr("find.error.bad_size", text));
 		}
 	}
 

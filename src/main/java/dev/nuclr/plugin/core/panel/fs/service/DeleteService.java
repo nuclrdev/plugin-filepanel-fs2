@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -176,7 +178,7 @@ public final class DeleteService {
 				if (desktop.isSupported(Desktop.Action.MOVE_TO_TRASH)) {
 					return path -> {
 						if (!desktop.moveToTrash(path.toFile())) {
-							throw new IOException("The operating system could not move the item to Trash or Recycle Bin");
+							throw new IOException(tr("delete.svc.trash.failed"));
 						}
 					};
 				}
@@ -197,7 +199,7 @@ public final class DeleteService {
 
 	private static TrashOperation unavailableTrash() {
 		return path -> {
-			throw new IOException("Trash or Recycle Bin is unavailable; nothing was deleted");
+			throw new IOException(tr("delete.svc.trash.unavailable"));
 		};
 	}
 

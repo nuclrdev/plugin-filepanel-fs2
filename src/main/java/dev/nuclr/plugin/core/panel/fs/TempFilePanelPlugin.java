@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -180,8 +182,7 @@ public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 			NuclrResource focusedResource, Map<String, Object> data, NuclrPluginCallback callback) {
 
 		if (ACCEPT_COPY.equals(actionType) || ACCEPT_MOVE.equals(actionType)) {
-			Alerts.showError(ctx, "Temporary panel",
-					"A temporary results panel is a virtual collection and cannot be a copy or move destination.");
+			Alerts.showError(ctx, tr("temp.destination.error.title"), tr("temp.destination.error.message"));
 			return;
 		}
 
@@ -202,7 +203,7 @@ public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 	 */
 	public static NuclrResource tempPanelResource(List<NuclrResource> hits, String title, NuclrResource origin) {
 		TempPanelResource root = new TempPanelResource();
-		root.setName(title != null && !title.isBlank() ? title : "Search results");
+		root.setName(title != null && !title.isBlank() ? title : tr("temp.default.title"));
 		root.setFolder(true);
 		root.getMetadata().put(MARKER, Boolean.TRUE);
 		root.getMetadata().put(RESULTS_KEY, new ArrayList<>(hits));
@@ -221,10 +222,10 @@ public class TempFilePanelPlugin extends LocalFileSystemPlugin {
 
 	private static String title(NuclrResource root) {
 		if (root == null) {
-			return "Temporary Panel";
+			return tr("temp.panel.title");
 		}
 		Object value = root.getMetadata().get(TITLE_KEY);
-		return value instanceof String s ? s : "Temporary Panel";
+		return value instanceof String s ? s : tr("temp.panel.title");
 	}
 
 	private static NuclrResource origin(NuclrResource root) {

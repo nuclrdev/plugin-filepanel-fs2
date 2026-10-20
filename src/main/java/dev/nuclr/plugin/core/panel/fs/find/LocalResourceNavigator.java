@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.find;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.Window;
 import java.io.File;
 import java.nio.file.Files;
@@ -58,7 +60,7 @@ public final class LocalResourceNavigator implements ResourceBrowser, ResourcePa
 	public Optional<NuclrResource> browse(Window owner, NuclrResource start) {
 		JFileChooser chooser = new JFileChooser();
 		chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-		chooser.setDialogTitle("Choose a folder to search");
+		chooser.setDialogTitle(tr("find.browse.title"));
 		if (start != null && start.getPath() != null) {
 			File dir = start.getPath().toFile();
 			chooser.setCurrentDirectory(dir.isDirectory() ? dir : dir.getParentFile());

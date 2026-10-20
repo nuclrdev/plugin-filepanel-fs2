@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.gotofolder;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -115,7 +117,7 @@ public class GoToFolderDialog extends JDialog {
 	 */
 	public GoToFolderDialog(Window owner, Path currentFolder, Consumer<Path> onGo) {
 
-		super(owner, "Go to folder", ModalityType.APPLICATION_MODAL);
+		super(owner, tr("goto.dialog.title"), ModalityType.APPLICATION_MODAL);
 
 		this.currentFolder = currentFolder;
 		this.onGo = onGo;
@@ -173,10 +175,10 @@ public class GoToFolderDialog extends JDialog {
 
 		status.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
 
-		goButton.setText("Go (Enter)");
+		goButton.setText(tr("goto.button.go"));
 		goButton.addActionListener(e -> go());
 		FlatButton closeButton = new FlatButton();
-		closeButton.setText("Cancel (Esc)");
+		closeButton.setText(tr("goto.button.cancel"));
 		closeButton.addActionListener(e -> close());
 
 		// Keyboard-first, as in the other panel lists: buttons stay out of the focus cycle so
@@ -191,7 +193,7 @@ public class GoToFolderDialog extends JDialog {
 		footer.add(status, BorderLayout.WEST);
 		footer.add(buttons, BorderLayout.EAST);
 
-		JLabel prompt = new JLabel("Go to the folder:");
+		JLabel prompt = new JLabel(tr("goto.prompt"));
 		prompt.setBorder(BorderFactory.createEmptyBorder(0, 0, 6, 0));
 
 		JPanel header = new JPanel(new BorderLayout());
@@ -278,11 +280,11 @@ public class GoToFolderDialog extends JDialog {
 		}
 
 		if (exists) {
-			status.setText(found.isEmpty() ? "Folder exists" : found.size() + " inside");
+			status.setText(found.isEmpty() ? tr("goto.status.exists") : tr("goto.status.inside", String.valueOf(found.size())));
 			return;
 		}
 
-		status.setText(found.isEmpty() ? "No such folder" : found.size() + " matching");
+		status.setText(found.isEmpty() ? tr("goto.status.no_such_folder") : tr("goto.status.matching", String.valueOf(found.size())));
 	}
 
 	/** Fill the field in as far as every suggestion agrees, and re-offer what is left. */
@@ -367,14 +369,14 @@ public class GoToFolderDialog extends JDialog {
 		Path path = PathCompletion.resolve(field.getText(), currentFolder);
 
 		if (path == null) {
-			status.setText("Type a folder to go to");
+			status.setText(tr("goto.status.type_folder"));
 			return;
 		}
 
 		// A path that is not there is not a reason to close: the user is mid-way through typing
 		// one, and losing the dialog would lose the text with it.
 		if (!Files.exists(path)) {
-			status.setText("No such folder: " + path);
+			status.setText(tr("goto.status.no_such_folder_path", path));
 			return;
 		}
 

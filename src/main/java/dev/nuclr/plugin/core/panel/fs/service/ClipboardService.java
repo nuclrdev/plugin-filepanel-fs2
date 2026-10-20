@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
@@ -111,15 +113,15 @@ public final class ClipboardService {
 
 		var popup = new JPopupMenu();
 
-		var copyPath = new javax.swing.JMenuItem("Copy full path to clipboard");
+		var copyPath = new javax.swing.JMenuItem(tr("clipboard.menu.copy.path"));
 		copyPath.addActionListener(e -> copyFullPaths(resources, currentFolder, context));
 		popup.add(copyPath);
 
-		var copyName = new javax.swing.JMenuItem("Copy file name to clipboard");
+		var copyName = new javax.swing.JMenuItem(tr("clipboard.menu.copy.name"));
 		copyName.addActionListener(e -> copyFileNames(resources, currentFolder, context));
 		popup.add(copyName);
 
-		var copyFiles = new javax.swing.JMenuItem("Copy selected files/folders to clipboard");
+		var copyFiles = new javax.swing.JMenuItem(tr("clipboard.menu.copy.files"));
 		copyFiles.setEnabled(!containsParent);
 		copyFiles.addActionListener(e -> copyFiles(resources, context));
 		popup.add(copyFiles);

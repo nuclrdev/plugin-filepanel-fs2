@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.usercommands;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -51,13 +53,13 @@ public final class UserCommandValidation {
 	public static Optional<String> validate(UserCommand candidate, List<UserCommand> existing, int editingIndex) {
 
 		if (candidate == null) {
-			return Optional.of("There is nothing to save.");
+			return Optional.of(tr("usercommands.validation.nothing_to_save"));
 		}
 		if (candidate.name().isEmpty()) {
-			return Optional.of("Enter a name for this command.");
+			return Optional.of(tr("usercommands.validation.enter_name"));
 		}
 		if (candidate.command().isEmpty()) {
-			return Optional.of("Enter the command to run.");
+			return Optional.of(tr("usercommands.validation.enter_command"));
 		}
 
 		Optional<String> pathProblem = workingDirectoryError(candidate.workingDirectory());
@@ -82,14 +84,13 @@ public final class UserCommandValidation {
 			return Optional.empty();
 		}
 		if (UserCommandShortcuts.isReserved(shortcut)) {
-			return Optional.of(UserCommandShortcuts.label(shortcut)
-					+ " is used by the User Commands list itself. Choose another key — a letter or a digit works well.");
+			return Optional.of(tr("usercommands.validation.shortcut_reserved", UserCommandShortcuts.label(shortcut)));
 		}
 
 		UserCommand owner = owningCommand(shortcut, existing, editingIndex);
 		if (owner != null) {
-			return Optional.of("The key " + UserCommandShortcuts.label(shortcut)
-					+ " is already assigned to \"" + owner.name() + "\".");
+			return Optional.of(tr("usercommands.validation.shortcut_taken", UserCommandShortcuts.label(shortcut),
+					owner.name()));
 		}
 		return Optional.empty();
 	}
@@ -135,11 +136,11 @@ public final class UserCommandValidation {
 		try {
 			Path path = Path.of(workingDirectory.trim());
 			if (Files.exists(path) && !Files.isDirectory(path)) {
-				return Optional.of("The working directory is a file, not a folder:\n" + path);
+				return Optional.of(tr("usercommands.validation.working_directory_is_file", path));
 			}
 			return Optional.empty();
 		} catch (InvalidPathException e) {
-			return Optional.of("The working directory is not a valid path:\n" + workingDirectory.trim());
+			return Optional.of(tr("usercommands.validation.working_directory_invalid", workingDirectory.trim()));
 		}
 	}
 }

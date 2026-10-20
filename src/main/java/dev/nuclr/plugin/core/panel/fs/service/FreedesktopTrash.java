@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
@@ -92,7 +94,7 @@ final class FreedesktopTrash implements DeleteService.TrashOperation {
 			recordedPath = topdir.relativize(item).toString();
 		}
 		if (trash.startsWith(item)) {
-			throw new IOException("Cannot move a folder that contains the Trash into the Trash");
+			throw new IOException(tr("trash.error.contains.trash"));
 		}
 
 		Path files = trash.resolve("files");
@@ -124,7 +126,7 @@ final class FreedesktopTrash implements DeleteService.TrashOperation {
 				throw e;
 			}
 		}
-		throw new IOException("No free name left in " + files + " for " + baseName);
+		throw new IOException(tr("trash.error.no.free.name", files.toString(), baseName));
 	}
 
 	static String trashInfo(String recordedPath) {
@@ -157,7 +159,7 @@ final class FreedesktopTrash implements DeleteService.TrashOperation {
 			top = top.getParent();
 		}
 		if (top == null) {
-			throw new IOException("Cannot find the file system root of " + item);
+			throw new IOException(tr("trash.error.no.root", item.toString()));
 		}
 		return top;
 	}
@@ -173,7 +175,7 @@ final class FreedesktopTrash implements DeleteService.TrashOperation {
 			p = p.getParent();
 		}
 		if (p == null) {
-			throw new IOException("No existing directory above " + path);
+			throw new IOException(tr("trash.error.no.ancestor", path.toString()));
 		}
 		return p;
 	}
@@ -182,7 +184,7 @@ final class FreedesktopTrash implements DeleteService.TrashOperation {
 		try {
 			return Files.getAttribute(item, "unix:uid", LinkOption.NOFOLLOW_LINKS);
 		} catch (UnsupportedOperationException | IllegalArgumentException e) {
-			throw new IOException("This file system has no Trash for files outside the home folder", e);
+			throw new IOException(tr("trash.error.no.topdir.trash"), e);
 		}
 	}
 

@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.KeyboardFocusManager;
 
 import javax.swing.BorderFactory;
@@ -38,7 +40,7 @@ final class CreateFileDialog {
 
 		JPanel content = new JPanel(new java.awt.BorderLayout(0, 6));
 		content.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
-		content.add(new JLabel("File name:"), java.awt.BorderLayout.NORTH);
+		content.add(new JLabel(tr("create.file.name")), java.awt.BorderLayout.NORTH);
 		content.add(fileName, java.awt.BorderLayout.CENTER);
 
 		// JOptionPane hands the initial focus to its default button through selectInitialValue(),
@@ -54,7 +56,7 @@ final class CreateFileDialog {
 			}
 		};
 		JDialog dialog = pane.createDialog(
-				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(), "Create file");
+				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(), tr("create.file.title"));
 		dialog.setVisible(true);
 		dialog.dispose();
 		if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue())) {

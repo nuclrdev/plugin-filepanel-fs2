@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.find;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import org.apache.commons.lang3.SystemUtils;
 
 /**
@@ -26,24 +28,24 @@ import org.apache.commons.lang3.SystemUtils;
 public enum ScopeType {
 
 	/** The focused panel's current folder (the default). */
-	CURRENT_FOLDER("Current folder"),
+	CURRENT_FOLDER("find.scope.current_folder"),
 
 	/** The current folders of both panels. */
-	BOTH_PANELS("Both panels"),
+	BOTH_PANELS("find.scope.both_panels"),
 
 	/** Only the items currently marked/selected in the focused panel. */
-	MARKED_ITEMS("Marked items"),
+	MARKED_ITEMS("find.scope.marked_items"),
 
 	/** All mounted volumes (drives / volumes / mount points, per platform). */
-	VOLUMES("Volumes"),
+	VOLUMES("find.scope.volumes"),
 
 	/** A single user-entered path or plugin URI. */
-	CUSTOM_PATH("Custom path…");
+	CUSTOM_PATH("find.scope.custom_path");
 
-	private final String label;
+	private final String labelKey;
 
-	ScopeType(String label) {
-		this.label = label;
+	ScopeType(String labelKey) {
+		this.labelKey = labelKey;
 	}
 
 	/**
@@ -53,13 +55,13 @@ public enum ScopeType {
 	public String label() {
 		if (this == VOLUMES) {
 			if (SystemUtils.IS_OS_WINDOWS) {
-				return "Drives";
+				return tr("find.scope.drives");
 			}
 			if (SystemUtils.IS_OS_MAC) {
-				return "Volumes";
+				return tr("find.scope.volumes");
 			}
-			return "Mount points";
+			return tr("find.scope.mount_points");
 		}
-		return label;
+		return tr(labelKey);
 	}
 }

@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.find;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -103,14 +105,14 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 
 	public FindResultsWindow(Window owner, FindFileRequest request, Consumer<NuclrResource> onActivate,
 			Consumer<List<NuclrResource>> onSendToPanel, NuclrPluginContext context) {
-		super(owner, "Find results — " + request.getNamePattern(), ModalityType.MODELESS);
+		super(owner, tr("find.results.title", request.getNamePattern()), ModalityType.MODELESS);
 		this.onActivate = onActivate;
 		this.onSendToPanel = onSendToPanel;
 		this.context = context;
 
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-		status.setText("Searching…");
+		status.setText(tr("find.status.searching"));
 
 		list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		list.setFont(new Font(Font.MONOSPACED, Font.PLAIN, list.getFont().getSize()));
@@ -137,15 +139,15 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		list.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "find.activate");
 		list.getActionMap().put("find.activate", action(this::activateSelection));
 
-		stopButton.setText("Stop");
+		stopButton.setText(tr("find.button.stop"));
 		stopButton.addActionListener(e -> stopSearch());
-		pauseButton.setText("Pause");
+		pauseButton.setText(tr("find.button.pause"));
 		pauseButton.addActionListener(e -> togglePause());
-		panelButton.setText("Panel");
-		panelButton.setToolTipText("Open these results in a temporary panel");
+		panelButton.setText(tr("find.button.panel"));
+		panelButton.setToolTipText(tr("find.button.panel.tooltip"));
 		panelButton.setEnabled(false);
 		panelButton.addActionListener(e -> sendResultsToPanel());
-		closeButton.setText("Close");
+		closeButton.setText(tr("common.close"));
 		closeButton.addActionListener(e -> dispose());
 
 		JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -203,8 +205,8 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 	@Override
 	public void onComplete(long visited, long matched, boolean cancelled) {
 		finished = true;
-		String verb = cancelled ? "stopped" : "complete";
-		status.setText("Search " + verb + " — " + model.getSize() + " item(s), " + visited + " scanned");
+		status.setText(tr(cancelled ? "find.status.stopped" : "find.status.complete",
+				String.valueOf(model.getSize()), String.valueOf(visited)));
 		stopButton.setEnabled(false);
 		pauseButton.setEnabled(false);
 		if (service != null) {
@@ -224,13 +226,14 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 
 	private void refreshStatus(int found, long visited, boolean ignore) {
 		boolean paused = handle != null && handle.isPaused();
-		StringBuilder sb = new StringBuilder();
-		sb.append(found).append(" item(s) found");
+		String text;
 		if (visited >= 0) {
-			sb.append(" — ").append(visited).append(" scanned");
+			text = tr(paused ? "find.status.found_scanned_paused" : "find.status.found_scanned_searching",
+					String.valueOf(found), String.valueOf(visited));
+		} else {
+			text = tr(paused ? "find.status.found_paused" : "find.status.found_searching", String.valueOf(found));
 		}
-		sb.append(paused ? " — paused" : " — searching…");
-		status.setText(sb.toString());
+		status.setText(text);
 	}
 
 	private void stopSearch() {
@@ -246,11 +249,11 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 		}
 		if (handle.isPaused()) {
 			handle.resume();
-			pauseButton.setText("Pause");
+			pauseButton.setText(tr("find.button.pause"));
 			SoundEvents.confirmation(context);
 		} else {
 			handle.pause();
-			pauseButton.setText("Resume");
+			pauseButton.setText(tr("find.button.resume"));
 			SoundEvents.warning(context);
 		}
 		refreshStatus(model.getSize(), -1, false);
@@ -295,13 +298,13 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 
 	private JPopupMenu buildContextMenu(NuclrResource resource) {
 		JPopupMenu menu = new JPopupMenu();
-		menu.add(menuItem("Open file", () -> openFile(resource)));
-		menu.add(menuItem("Reveal in File Manager", () -> reveal(resource)));
-		menu.add(menuItem("Go to in panel", () -> activate(resource)));
+		menu.add(menuItem(tr("find.menu.open_file"), () -> openFile(resource)));
+		menu.add(menuItem(tr("find.menu.reveal"), () -> reveal(resource)));
+		menu.add(menuItem(tr("find.menu.go_to_in_panel"), () -> activate(resource)));
 		menu.addSeparator();
-		menu.add(menuItem("Copy file", () -> copyFiles(resource)));
-		menu.add(menuItem("Copy full path", () -> copyText(pathOf(resource))));
-		menu.add(menuItem("Copy name", () -> copyText(resource.getName())));
+		menu.add(menuItem(tr("find.menu.copy_file"), () -> copyFiles(resource)));
+		menu.add(menuItem(tr("find.menu.copy_full_path"), () -> copyText(pathOf(resource))));
+		menu.add(menuItem(tr("find.menu.copy_name"), () -> copyText(resource.getName())));
 		return menu;
 	}
 
@@ -326,7 +329,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 			SystemOpen.open(path);
 			SoundEvents.confirmation(context);
 		} catch (Exception ex) {
-			showError("Could not open " + resource.getName(), ex);
+			showError(tr("find.error.could_not_open", resource.getName()), ex);
 		}
 	}
 
@@ -339,7 +342,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 			SystemOpen.reveal(path);
 			SoundEvents.confirmation(context);
 		} catch (Exception ex) {
-			showError("Could not reveal " + resource.getName(), ex);
+			showError(tr("find.error.could_not_reveal", resource.getName()), ex);
 		}
 	}
 
@@ -379,7 +382,7 @@ public final class FindResultsWindow extends JDialog implements FindFileService.
 	private void showError(String message, Exception ex) {
 		log.warn("{}: {}", message, ex.getMessage());
 		SoundEvents.error(context);
-		JOptionPane.showMessageDialog(this, message + "\n" + ex.getMessage(), "Find results",
+		JOptionPane.showMessageDialog(this, message + "\n" + ex.getMessage(), tr("find.results.error_title"),
 				JOptionPane.WARNING_MESSAGE);
 	}
 

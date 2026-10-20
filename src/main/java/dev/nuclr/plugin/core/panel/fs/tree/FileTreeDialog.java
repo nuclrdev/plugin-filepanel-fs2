@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.tree;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -88,7 +90,7 @@ final class FileTreeDialog extends JDialog {
 			super.processKeyEvent(e);
 		}
 	};
-	private final JLabel status = new JLabel("Loading…");
+	private final JLabel status = new JLabel(tr("tree.status.loading"));
 	private final FlatButton goButton = new FlatButton();
 	private volatile boolean closed;
 	private String search = "";
@@ -102,7 +104,7 @@ final class FileTreeDialog extends JDialog {
 	private boolean revealAbandoned;
 
 	FileTreeDialog(Window owner, Path currentFolder, Consumer<Path> onGo) {
-		super(owner, "File/folder tree", ModalityType.APPLICATION_MODAL);
+		super(owner, tr("tree.dialog.title"), ModalityType.APPLICATION_MODAL);
 		this.onGo = onGo;
 
 		setDefaultCloseOperation(DISPOSE_ON_CLOSE);
@@ -177,11 +179,11 @@ final class FileTreeDialog extends JDialog {
 			public void treeWillCollapse(TreeExpansionEvent event) throws ExpandVetoException {
 			}
 		});
-		goButton.setText("Go (Enter)");
+		goButton.setText(tr("tree.button.go"));
 		goButton.setFocusable(false);
 		goButton.addActionListener(e -> goToSelected());
 		FlatButton closeButton = new FlatButton();
-		closeButton.setText("Close (Esc)");
+		closeButton.setText(tr("tree.button.close"));
 		closeButton.setFocusable(false);
 		closeButton.addActionListener(e -> close());
 
@@ -277,7 +279,7 @@ final class FileTreeDialog extends JDialog {
 		}
 
 		node.state = LoadState.LOADING;
-		status.setText("Loading " + node.path + "…");
+		status.setText(tr("tree.status.loading_path", node.path));
 		FileTreeLoader.load(node.path, result -> SwingUtilities.invokeLater(() -> finishLoad(node, result)));
 	}
 
@@ -290,7 +292,7 @@ final class FileTreeDialog extends JDialog {
 			node.add(PathNode.path(entry.path(), entry.directory()));
 		}
 		if (result.error() != null) {
-			node.add(PathNode.message("Unable to read: " + safeMessage(result.error())));
+			node.add(PathNode.message(tr("tree.error.unable_to_read", safeMessage(result.error()))));
 		}
 		node.state = LoadState.LOADED;
 		model.nodeStructureChanged(node);
@@ -365,7 +367,7 @@ final class FileTreeDialog extends JDialog {
 		PathNode node = selectedNode();
 		goButton.setEnabled(node != null && node.path != null);
 		if (!search.isEmpty()) {
-			status.setText("Search: " + search);
+			status.setText(tr("tree.status.search", search));
 		} else if (node != null && node.path != null) {
 			status.setText(node.path.toString());
 		} else {
@@ -466,12 +468,12 @@ final class FileTreeDialog extends JDialog {
 			this.label = label;
 			this.state = state;
 			if (directory && path != null) {
-				add(message("Loading…"));
+				add(message(tr("tree.status.loading")));
 			}
 		}
 
 		static PathNode computer() {
-			return new PathNode(null, true, "Computer", LoadState.LOADED);
+			return new PathNode(null, true, tr("tree.node.computer"), LoadState.LOADED);
 		}
 
 		static PathNode path(Path path, boolean directory) {

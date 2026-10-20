@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.history;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -134,7 +136,7 @@ public class FolderHistoryDialog extends JDialog {
 	public FolderHistoryDialog(Window owner, FolderHistory history, Consumer<String> onGo,
 			NuclrPluginContext context) {
 
-		super(owner, "Folders history", ModalityType.APPLICATION_MODAL);
+		super(owner, tr("history.dialog.title"), ModalityType.APPLICATION_MODAL);
 
 		this.history = history;
 		this.onGo = onGo;
@@ -184,15 +186,15 @@ public class FolderHistoryDialog extends JDialog {
 
 		status.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 0));
 
-		goButton.setText("Go (Enter)");
+		goButton.setText(tr("history.button.go"));
 		goButton.addActionListener(e -> goToSelected());
-		removeButton.setText("Remove (Del)");
+		removeButton.setText(tr("history.button.remove"));
 		removeButton.addActionListener(e -> removeSelected());
 		FlatButton clearButton = new FlatButton();
-		clearButton.setText("Clear all");
+		clearButton.setText(tr("history.button.clear_all"));
 		clearButton.addActionListener(e -> clearAll());
 		FlatButton closeButton = new FlatButton();
-		closeButton.setText("Close (Esc)");
+		closeButton.setText(tr("history.button.close"));
 		closeButton.addActionListener(e -> close());
 
 		// Keyboard-first, as in the F2 list: keeping the buttons out of the focus cycle means
@@ -288,8 +290,8 @@ public class FolderHistoryDialog extends JDialog {
 				folders++;
 			}
 		}
-		String counted = folders + (folders == 1 ? " folder" : " folders");
-		status.setText(filter.isEmpty() ? counted : counted + " matching \"" + filter + "\"");
+		String counted = tr(folders == 1 ? "history.status.folder" : "history.status.folders", String.valueOf(folders));
+		status.setText(filter.isEmpty() ? counted : tr("history.status.matching", counted, filter));
 	}
 
 	private void updateButtonState() {
@@ -456,7 +458,7 @@ public class FolderHistoryDialog extends JDialog {
 		}
 		SoundEvents.warning(context);
 		int answer = JOptionPane.showConfirmDialog(this,
-				"Forget every folder in the history?", "Folders history",
+				tr("history.confirm.clear"), tr("history.dialog.title"),
 				JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
 		if (answer != JOptionPane.YES_OPTION) {
 			return;
@@ -552,7 +554,7 @@ public class FolderHistoryDialog extends JDialog {
 						: list.getForeground());
 			}
 			folderLabel.setToolTipText(missing.contains(entry.path())
-					? entry.path() + " (not found)"
+					? tr("history.tooltip.not_found", entry.path())
 					: entry.path());
 			return folderLabel;
 		}

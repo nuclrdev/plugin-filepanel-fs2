@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
@@ -35,8 +37,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MakeNewFolderService {
 
-	private static final String DialogTitle = "Make Folder";
-
 	public static Path makeNewFolder(NuclrResource currentFolder, NuclrPluginCallback callback) {
 		return makeNewFolder(currentFolder, callback, null);
 	}
@@ -45,13 +45,13 @@ public class MakeNewFolderService {
 			NuclrPluginContext context) {
 
 		if (currentFolder == null || currentFolder.getPath() == null) {
-			Alerts.showError(context, DialogTitle, "No folder is open.");
+			Alerts.showError(context, tr("folder.make.title"), tr("create.no.folder"));
 			return null;
 		}
 
 		Path parent = currentFolder.getPath();
 		if (!Files.isDirectory(parent)) {
-			Alerts.showError(context, DialogTitle, "The current item is not a folder.");
+			Alerts.showError(context, tr("folder.make.title"), tr("folder.not.a.folder"));
 			return null;
 		}
 		// No Files.isWritable pre-check: it demands full write access (incl. adding files), but
@@ -69,18 +69,18 @@ public class MakeNewFolderService {
 			return null;
 		}
 		if (isInvalidSingleFolderName(folderName)) {
-			Alerts.showError(context, DialogTitle, "Folder name cannot contain path separators.");
+			Alerts.showError(context, tr("folder.make.title"), tr("folder.name.separators"));
 			return null;
 		}
 
 		try {
 			Path target = parent.resolve(folderName);
 			if (Files.exists(target)) {
-				Alerts.showError(context, DialogTitle, "A file or folder with that name already exists.");
+				Alerts.showError(context, tr("folder.make.title"), tr("create.name.exists"));
 				return null;
 			}
 			if (callback != null) {
-				callback.onStart("Creating folder " + folderName);
+				callback.onStart(tr("folder.progress", folderName));
 			}
 			Files.createDirectory(target);
 			if (callback != null) {
@@ -93,14 +93,14 @@ public class MakeNewFolderService {
 			if (callback != null) {
 				callback.onError(folderName, e);
 			}
-			Alerts.showError(context, DialogTitle, "Access denied: cannot create a folder here.");
+			Alerts.showError(context, tr("folder.make.title"), tr("folder.access.denied"));
 			return null;
 		} catch (InvalidPathException | IOException | UnsupportedOperationException e) {
 			log.warn("Failed to create folder [{}] in [{}]: {}", folderName, parent, e.getMessage(), e);
 			if (callback != null) {
 				callback.onError(folderName, e instanceof Exception ex ? ex : new IOException(e));
 			}
-			Alerts.showError(context, DialogTitle, (e.getMessage() != null ? e.getMessage() : "Could not create folder."));
+			Alerts.showError(context, tr("folder.make.title"), (e.getMessage() != null ? e.getMessage() : tr("folder.failed")));
 			return null;
 		}
 	}
@@ -116,7 +116,7 @@ public class MakeNewFolderService {
 	private static String promptFolderName(NuclrPluginContext context) {
 		final String[] result = new String[1];
 		SoundEvents.popup(context);
-		Alerts.runOnEdtAndWait(() -> result[0] = JOptionPane.showInputDialog(null, "Folder name:", DialogTitle,
+		Alerts.runOnEdtAndWait(() -> result[0] = JOptionPane.showInputDialog(null, tr("folder.name.prompt"), tr("folder.make.title"),
 				JOptionPane.PLAIN_MESSAGE));
 		return result[0];
 	}

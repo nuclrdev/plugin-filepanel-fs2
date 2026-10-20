@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -92,10 +94,10 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 	private Resolution ask(Path source, Path target) {
 
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-		JDialog dialog = new JDialog(owner, "Warning", JDialog.ModalityType.APPLICATION_MODAL);
+		JDialog dialog = new JDialog(owner, tr("transfer.conflict.title"), JDialog.ModalityType.APPLICATION_MODAL);
 		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-		JLabel title = new JLabel("File already exists", JLabel.CENTER);
+		JLabel title = new JLabel(tr("transfer.conflict.heading"), JLabel.CENTER);
 		title.setFont(title.getFont().deriveFont(Font.BOLD));
 
 		JPanel header = new JPanel(new BorderLayout(0, 4));
@@ -104,18 +106,18 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 
 		JPanel info = new JPanel(new GridLayout(2, 1, 0, 2));
 		info.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
-		info.add(detailRow("New", source));
-		info.add(detailRow("Existing", target));
+		info.add(detailRow(tr("transfer.conflict.new"), source));
+		info.add(detailRow(tr("transfer.conflict.existing"), target));
 
-		JCheckBox remember = new JCheckBox("Remember choice");
+		JCheckBox remember = new JCheckBox(tr("transfer.conflict.remember"));
 
 		final Resolution[] picked = new Resolution[1];
 
-		JButton overwrite = new JButton("Overwrite");
-		JButton skip = new JButton("Skip");
-		JButton rename = new JButton("Rename");
-		JButton append = new JButton("Append");
-		JButton cancel = new JButton("Cancel");
+		JButton overwrite = new JButton(tr("transfer.conflict.overwrite"));
+		JButton skip = new JButton(tr("common.skip"));
+		JButton rename = new JButton(tr("transfer.conflict.rename"));
+		JButton append = new JButton(tr("transfer.conflict.append"));
+		JButton cancel = new JButton(tr("common.cancel"));
 
 		overwrite.addActionListener(e -> {
 			picked[0] = Resolution.of(Action.OVERWRITE);
@@ -200,19 +202,19 @@ final class CopyConflictDialog implements CopyEngine.ConflictResolver {
 	/** @return the chosen new target path, or {@code null} if the rename was cancelled. */
 	private Path promptRename(Window owner, Path target) {
 
-		JDialog dialog = new JDialog(owner, "Rename", JDialog.ModalityType.APPLICATION_MODAL);
+		JDialog dialog = new JDialog(owner, tr("transfer.rename.title"), JDialog.ModalityType.APPLICATION_MODAL);
 		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
 		JTextField field = new JTextField(CopyEngine.autoRename(target).toString(), 40);
 
 		JPanel top = new JPanel(new BorderLayout(0, 4));
-		top.add(new JLabel("New name:"), BorderLayout.NORTH);
+		top.add(new JLabel(tr("transfer.rename.prompt")), BorderLayout.NORTH);
 		top.add(field, BorderLayout.CENTER);
 
 		final Path[] result = new Path[1];
 
-		JButton ok = new JButton("OK");
-		JButton cancel = new JButton("Cancel");
+		JButton ok = new JButton(tr("common.ok"));
+		JButton cancel = new JButton(tr("common.cancel"));
 		ok.addActionListener(e -> {
 			String text = field.getText() == null ? "" : field.getText().trim();
 			if (text.isEmpty()) {

@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.Desktop;
 import java.io.IOException;
 import java.net.URI;
@@ -19,7 +21,7 @@ public final class SystemOpen {
         Path absolutePath = path.toAbsolutePath().normalize();
 
         if (!Files.exists(absolutePath)) {
-            throw new IOException("File does not exist: " + absolutePath);
+            throw new IOException(tr("system.open.not.found", String.valueOf(absolutePath)));
         }
 
         // Preferred Java-native approach
@@ -44,7 +46,7 @@ public final class SystemOpen {
         Path absolutePath = path.toAbsolutePath().normalize();
 
         if (!Files.exists(absolutePath)) {
-            throw new IOException("File does not exist: " + absolutePath);
+            throw new IOException(tr("system.open.not.found", String.valueOf(absolutePath)));
         }
 
         String os = osName();

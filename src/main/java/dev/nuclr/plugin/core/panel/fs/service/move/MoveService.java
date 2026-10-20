@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service.move;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH;
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_SELECTED_RESOURCE;
@@ -46,8 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MoveService {
 
-	private static final String DialogTitle = "Rename/Move";
-
 	/**
 	 * Move the selected (or focused) resources to {@code currentFolder} (or, for a single source
 	 * renamed in the dialog, to the explicit path the user typed).
@@ -67,13 +67,13 @@ public class MoveService {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null) {
-			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
+			Alerts.showError(context, tr("move.title"), tr("transfer.destination.not.folder"));
 			return false;
 		}
 
 		List<Path> sources = collectSources(selectedResources, focusedResource);
 		if (sources.isEmpty()) {
-			Alerts.showError(context, DialogTitle, "There is nothing to move.");
+			Alerts.showError(context, tr("move.title"), tr("move.nothing"));
 			return false;
 		}
 
@@ -222,6 +222,6 @@ public class MoveService {
 			Path name = sources.get(0).getFileName();
 			return name != null ? name.toString() : sources.get(0).toString();
 		}
-		return sources.size() + " items";
+		return tr("transfer.items", String.valueOf(sources.size()));
 	}
 }

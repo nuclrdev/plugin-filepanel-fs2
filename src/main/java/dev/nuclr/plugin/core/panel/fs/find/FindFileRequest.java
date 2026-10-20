@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.find;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -368,11 +370,11 @@ public final class FindFileRequest {
 
 			if (name.isEmpty() && containing.isBlank()) {
 				throw new IllegalArgumentException(
-						"A search needs at least a name pattern or a containing-text query");
+						tr("find.error.empty_query"));
 			}
 
 			if (scopeType == ScopeType.CUSTOM_PATH && (customPath == null || customPath.isBlank())) {
-				throw new IllegalArgumentException("Custom path scope requires a non-blank path");
+				throw new IllegalArgumentException(tr("find.error.custom_path_blank"));
 			}
 
 			if (!containing.isBlank()) {
@@ -380,16 +382,16 @@ public final class FindFileRequest {
 			}
 
 			if (minSizeBytes != null && minSizeBytes < 0) {
-				throw new IllegalArgumentException("Minimum size must not be negative");
+				throw new IllegalArgumentException(tr("find.error.min_size_negative"));
 			}
 			if (maxSizeBytes != null && maxSizeBytes < 0) {
-				throw new IllegalArgumentException("Maximum size must not be negative");
+				throw new IllegalArgumentException(tr("find.error.max_size_negative"));
 			}
 			if (minSizeBytes != null && maxSizeBytes != null && minSizeBytes > maxSizeBytes) {
-				throw new IllegalArgumentException("Minimum size exceeds maximum size");
+				throw new IllegalArgumentException(tr("find.error.min_exceeds_max"));
 			}
 			if (modifiedFrom != null && modifiedTo != null && modifiedFrom.isAfter(modifiedTo)) {
-				throw new IllegalArgumentException("Modified-from date is after modified-to date");
+				throw new IllegalArgumentException(tr("find.error.date_range"));
 			}
 
 			return new FindFileRequest(this);
@@ -401,19 +403,19 @@ public final class FindFileRequest {
 					try {
 						Pattern.compile(containing);
 					} catch (PatternSyntaxException e) {
-						throw new IllegalArgumentException("Invalid regular expression: " + e.getMessage(), e);
+						throw new IllegalArgumentException(tr("find.error.invalid_regex", e.getMessage()), e);
 					}
 				}
 				case HEX -> {
 					String compact = containing.replaceAll("\\s+", "");
 					if (compact.isEmpty()) {
-						throw new IllegalArgumentException("Hex query is empty");
+						throw new IllegalArgumentException(tr("find.error.hex_empty"));
 					}
 					if (compact.length() % 2 != 0) {
-						throw new IllegalArgumentException("Hex query must have an even number of digits");
+						throw new IllegalArgumentException(tr("find.error.hex_odd"));
 					}
 					if (!compact.matches("[0-9A-Fa-f]+")) {
-						throw new IllegalArgumentException("Hex query contains non-hex characters");
+						throw new IllegalArgumentException(tr("find.error.hex_chars"));
 					}
 				}
 				case TEXT -> {

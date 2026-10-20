@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.KeyboardFocusManager;
@@ -52,7 +54,7 @@ final class PasteTextDialog {
 		previewArea.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
 
 		JPanel name = new JPanel(new BorderLayout(0, 6));
-		name.add(new JLabel("Save clipboard text as:"), BorderLayout.NORTH);
+		name.add(new JLabel(tr("paste.text.save.as")), BorderLayout.NORTH);
 		name.add(fileName, BorderLayout.CENTER);
 
 		JPanel content = new JPanel(new BorderLayout(0, 10));
@@ -74,7 +76,7 @@ final class PasteTextDialog {
 			}
 		};
 		JDialog dialog = pane.createDialog(
-				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(), "Paste text");
+				KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow(), tr("paste.text.title"));
 		dialog.setVisible(true);
 		dialog.dispose();
 		if (!Integer.valueOf(JOptionPane.OK_OPTION).equals(pane.getValue())) {

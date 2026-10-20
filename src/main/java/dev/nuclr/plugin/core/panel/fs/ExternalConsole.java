@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -78,7 +80,7 @@ public final class ExternalConsole {
 
 		Path target = executable.toAbsolutePath().normalize();
 		if (!Files.isRegularFile(target)) {
-			throw new IOException("Not a file: " + target);
+			throw new IOException(tr("console.not.a.file", String.valueOf(target)));
 		}
 
 		Path cwd = workingDirectory != null
@@ -86,7 +88,7 @@ public final class ExternalConsole {
 			: target.getParent() != null ? target.getParent() : target;
 
 		if (!Files.isDirectory(cwd)) {
-			throw new IOException("Not a folder: " + cwd);
+			throw new IOException(tr("console.not.a.folder", String.valueOf(cwd)));
 		}
 
 		// On Windows the file is started from a run-once script rather than directly, for the
@@ -123,7 +125,7 @@ public final class ExternalConsole {
 
 		Path cwd = workingDirectory.toAbsolutePath().normalize();
 		if (!Files.isDirectory(cwd)) {
-			throw new IOException("Not a folder: " + cwd);
+			throw new IOException(tr("console.not.a.folder", String.valueOf(cwd)));
 		}
 
 		launch(writeCommandScript(commandLine, cwd), cwd);
@@ -286,7 +288,7 @@ public final class ExternalConsole {
 
 	private static void runLinux(Path target, Path workingDirectory) throws IOException {
 		if (!Files.isExecutable(target)) {
-			throw new IOException("File is not executable: " + target);
+			throw new IOException(tr("console.not.executable", String.valueOf(target)));
 		}
 
 		String keepOpen = posixKeepOpenScript(target);
@@ -305,7 +307,7 @@ public final class ExternalConsole {
 				lastFailure = e;
 			}
 		}
-		throw new IOException("No terminal emulator found to run " + target, lastFailure);
+		throw new IOException(tr("console.no.terminal", String.valueOf(target)), lastFailure);
 	}
 
 	/**

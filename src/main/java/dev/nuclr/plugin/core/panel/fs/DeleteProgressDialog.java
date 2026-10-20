@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -68,11 +70,11 @@ public final class DeleteProgressDialog {
 
 		Window owner = parent == null ? null : SwingUtilities.getWindowAncestor(parent);
 
-		JLabel itemLabel = new JLabel("Preparing…");
+		JLabel itemLabel = new JLabel(tr("delete.progress.preparing"));
 		JLabel countLabel = new JLabel(" ");
 		JProgressBar bar = new JProgressBar();
 		bar.setIndeterminate(true);
-		JButton cancelButton = new JButton("Cancel");
+		JButton cancelButton = new JButton(tr("common.cancel"));
 
 		JDialog dialog = buildDialog(owner, itemLabel, countLabel, bar, cancelButton);
 
@@ -84,7 +86,7 @@ public final class DeleteProgressDialog {
 		cancelButton.addActionListener(e -> {
 			cancelled.set(true);
 			cancelButton.setEnabled(false);
-			itemLabel.setText("Cancelling…");
+			itemLabel.setText(tr("delete.progress.cancelling"));
 		});
 
 		// Note: we intentionally do NOT disable the owner window while this dialog is shown.
@@ -121,7 +123,7 @@ public final class DeleteProgressDialog {
 			public void onComplete() {
 				SwingUtilities.invokeLater(() -> {
 					completed[0]++;
-					countLabel.setText(completed[0] + " deleted");
+					countLabel.setText(tr("delete.progress.count", String.valueOf(completed[0])));
 				});
 			}
 
@@ -160,7 +162,7 @@ public final class DeleteProgressDialog {
 			JButton cancelButton) {
 
 		JDialog dialog = new JDialog(owner);
-		dialog.setTitle("Delete");
+		dialog.setTitle(tr("delete.progress.title"));
 		dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 
 		JPanel content = new JPanel(new BorderLayout(0, 8));

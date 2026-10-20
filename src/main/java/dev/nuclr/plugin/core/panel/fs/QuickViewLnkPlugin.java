@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -127,6 +129,9 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 	@Override
 	public void preinit(NuclrPluginContext context) {
 		this.context = context;
+		if (context != null) {
+			Messages.use(context.getLocale());
+		}
 		updateTheme(context != null ? context.getTheme() : null);
 	}
 
@@ -192,7 +197,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 
 	@Override
 	public String getWindowTitle() {
-		return "Quick View: " + (currentResource != null ? currentResource.getName() : "");
+		return tr("lnk.window.title", currentResource != null ? currentResource.getName() : "");
 	}
 
 
@@ -201,7 +206,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 		private LnkTheme theme = LnkTheme.from(null);
 		private volatile Thread loadThread;
 		private ShortcutInfo currentInfo;
-		private String currentMessage = "No shortcut selected.";
+		private String currentMessage = tr("lnk.message.none");
 		private String currentError;
 
 		LnkQuickViewPanel() {
@@ -230,7 +235,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 
 			currentInfo = null;
 			currentError = null;
-			showMessage("Reading shortcut...");
+			showMessage(tr("lnk.message.reading"));
 
 			loadThread = Thread.ofVirtual()
 					.name("lnk-quick-view-" + safeThreadName(resource))
@@ -318,7 +323,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			text.setOpaque(false);
 			text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
-			JLabel title = new JLabel("Shortcut preview unavailable");
+			JLabel title = new JLabel(tr("lnk.error.title"));
 			title.setForeground(theme.foreground());
 			title.setFont(theme.bodyFont().deriveFont(Font.BOLD, 15f));
 
@@ -344,15 +349,15 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			page.add(new HeaderPanel(info, theme));
 			page.add(Box.createVerticalStrut(10));
 
-			addSection(page, "Target", info.targetRows());
-			addSection(page, "Launch", info.launchRows());
-			addSection(page, "Icon", info.iconRows());
-			addSection(page, "Shortcut File", info.sourceRows());
-			addSection(page, "Target Timestamps", info.timestampRows());
-			addSection(page, "Location Metadata", info.locationRows());
-			addChipSection(page, "Link Flags", info.linkFlags());
-			addChipSection(page, "Target Attributes", info.attributeFlags());
-			addSection(page, "Notes", info.noteRows());
+			addSection(page, tr("lnk.section.target"), info.targetRows());
+			addSection(page, tr("lnk.section.launch"), info.launchRows());
+			addSection(page, tr("lnk.section.icon"), info.iconRows());
+			addSection(page, tr("lnk.section.source"), info.sourceRows());
+			addSection(page, tr("lnk.section.timestamps"), info.timestampRows());
+			addSection(page, tr("lnk.section.location"), info.locationRows());
+			addChipSection(page, tr("lnk.section.link_flags"), info.linkFlags());
+			addChipSection(page, tr("lnk.section.attributes"), info.attributeFlags());
+			addSection(page, tr("lnk.section.notes"), info.noteRows());
 
 			page.add(Box.createVerticalGlue());
 
@@ -460,7 +465,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			TargetStatus status = QuickViewLnkPlugin.targetStatus(target, sourcePath);
 			List<String> notes = new ArrayList<>();
 			if (target == null) {
-				notes.add("This shortcut does not expose a target path in the standard .lnk fields.");
+				notes.add(tr("lnk.note.no_target"));
 			} else if (status.tone() == Tone.WARNING) {
 				notes.add(status.detail());
 			} else if (status.tone() == Tone.NEUTRAL && status.detail() != null) {
@@ -468,42 +473,42 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			}
 
 			List<InfoRow> targetRows = new ArrayList<>();
-			add(targetRows, "Resolved target", target, true);
-			add(targetRows, "Target status", status.label(), false);
-			add(targetRows, "Status detail", status.detail(), false);
-			add(targetRows, "Checked path", status.checkedPath(), true);
-			addIfDifferent(targetRows, "LinkInfo path", linkInfoPath, target);
-			addIfDifferent(targetRows, "ID list path", idListPath, target);
-			addIfDifferent(targetRows, "Environment target", environmentTarget, target);
-			addIfDifferent(targetRows, "Relative path", relativePath, target);
+			add(targetRows, tr("lnk.row.resolved_target"), target, true);
+			add(targetRows, tr("lnk.row.target_status"), status.label(), false);
+			add(targetRows, tr("lnk.row.status_detail"), status.detail(), false);
+			add(targetRows, tr("lnk.row.checked_path"), status.checkedPath(), true);
+			addIfDifferent(targetRows, tr("lnk.row.linkinfo_path"), linkInfoPath, target);
+			addIfDifferent(targetRows, tr("lnk.row.idlist_path"), idListPath, target);
+			addIfDifferent(targetRows, tr("lnk.row.environment_target"), environmentTarget, target);
+			addIfDifferent(targetRows, tr("lnk.row.relative_path"), relativePath, target);
 
 			List<InfoRow> launchRows = new ArrayList<>();
-			add(launchRows, "Description", clean(link.getName()), false);
-			add(launchRows, "Arguments", clean(link.getCMDArgs()), true);
-			add(launchRows, "Working directory", clean(link.getWorkingDir()), true);
-			add(launchRows, "Window mode", header != null ? showCommand(header.getShowCommand()) : null, false);
-			add(launchRows, "Hotkey", header != null ? hotkey(header.getHotKeyFlags()) : null, false);
-			add(launchRows, "Run behavior", header != null ? runBehavior(header.getLinkFlags()) : null, false);
+			add(launchRows, tr("lnk.row.description"), clean(link.getName()), false);
+			add(launchRows, tr("lnk.row.arguments"), clean(link.getCMDArgs()), true);
+			add(launchRows, tr("lnk.row.working_dir"), clean(link.getWorkingDir()), true);
+			add(launchRows, tr("lnk.row.window_mode"), header != null ? showCommand(header.getShowCommand()) : null, false);
+			add(launchRows, tr("lnk.row.hotkey"), header != null ? hotkey(header.getHotKeyFlags()) : null, false);
+			add(launchRows, tr("lnk.row.run_behavior"), header != null ? runBehavior(header.getLinkFlags()) : null, false);
 
 			List<InfoRow> iconRows = new ArrayList<>();
-			add(iconRows, "Icon location", clean(link.getIconLocation()), true);
-			add(iconRows, "Icon environment", iconEnvironment(link), true);
-			add(iconRows, "Icon index", header != null ? Integer.toString(header.getIconIndex()) : null, false);
+			add(iconRows, tr("lnk.row.icon_location"), clean(link.getIconLocation()), true);
+			add(iconRows, tr("lnk.row.icon_environment"), iconEnvironment(link), true);
+			add(iconRows, tr("lnk.row.icon_index"), header != null ? Integer.toString(header.getIconIndex()) : null, false);
 
 			List<InfoRow> sourceRows = new ArrayList<>();
-			add(sourceRows, "Shortcut file", sourcePath(resource), true);
-			add(sourceRows, "Shortcut size", formatSize(resource), false);
-			add(sourceRows, "Modified", format(resource.getLastModifiedDateTime()), false);
-			add(sourceRows, "Created", format(resource.getCreatedDateTime()), false);
-			add(sourceRows, "Accessed", format(resource.getLastAccessDateTime()), false);
-			add(sourceRows, "Format", "Windows Shell Link (.lnk)", false);
+			add(sourceRows, tr("lnk.row.shortcut_file"), sourcePath(resource), true);
+			add(sourceRows, tr("lnk.row.shortcut_size"), formatSize(resource), false);
+			add(sourceRows, tr("lnk.row.modified"), format(resource.getLastModifiedDateTime()), false);
+			add(sourceRows, tr("lnk.row.created"), format(resource.getCreatedDateTime()), false);
+			add(sourceRows, tr("lnk.row.accessed"), format(resource.getLastAccessDateTime()), false);
+			add(sourceRows, tr("lnk.row.format"), tr("lnk.format.value"), false);
 
 			List<InfoRow> timestampRows = new ArrayList<>();
 			if (header != null) {
-				add(timestampRows, "Target created", format(header.getCreationTime()), false);
-				add(timestampRows, "Target accessed", format(header.getAccessTime()), false);
-				add(timestampRows, "Target modified", format(header.getWriteTime()), false);
-				add(timestampRows, "Target size", header.getFileSize() > 0 ? FileUtils.byteCountToDisplaySize(header.getFileSize()) : null, false);
+				add(timestampRows, tr("lnk.row.target_created"), format(header.getCreationTime()), false);
+				add(timestampRows, tr("lnk.row.target_accessed"), format(header.getAccessTime()), false);
+				add(timestampRows, tr("lnk.row.target_modified"), format(header.getWriteTime()), false);
+				add(timestampRows, tr("lnk.row.target_size"), header.getFileSize() > 0 ? FileUtils.byteCountToDisplaySize(header.getFileSize()) : null, false);
 			}
 
 			List<InfoRow> locationRows = new ArrayList<>();
@@ -514,7 +519,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			List<InfoRow> noteRows = notes.stream().map(note -> new InfoRow("", note, false)).toList();
 
 			String title = displayName(resource);
-			String subtitle = target != null ? target : "Windows shortcut";
+			String subtitle = target != null ? target : tr("lnk.default_name");
 			return new ShortcutInfo(title, subtitle, target, status, targetRows, launchRows, iconRows, sourceRows,
 					timestampRows, locationRows, linkFlags, attributeFlags, noteRows);
 		}
@@ -531,7 +536,8 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 				if (e instanceof IOException io) {
 					throw io;
 				}
-				throw new IOException("Unable to read shortcut stream", e);
+				// The message reaches the preview's error card through friendlyError().
+				throw new IOException(tr("lnk.error.read_stream"), e);
 			}
 		}
 	}
@@ -550,7 +556,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 
 	private static TargetStatus targetStatus(String target, Path sourcePath) {
 		if (target == null || target.isBlank()) {
-			return new TargetStatus("Target not stored", "No standard target path was found in this shortcut.", null,
+			return new TargetStatus(tr("lnk.status.not_stored"), tr("lnk.status.not_stored.detail"), null,
 					Tone.WARNING);
 		}
 
@@ -558,7 +564,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 
 		try {
 			if (looksLikeWindowsPath(expanded) && !SystemUtils.IS_OS_WINDOWS) {
-				return new TargetStatus("Windows target", "Target availability is not checked on this OS.", expanded,
+				return new TargetStatus(tr("lnk.status.windows"), tr("lnk.status.windows.detail"), expanded,
 						Tone.NEUTRAL);
 			}
 
@@ -568,13 +574,16 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			}
 
 			if (Files.exists(checked)) {
-				String kind = Files.isDirectory(checked) ? "Folder" : "File";
-				return new TargetStatus("Target found", kind + " exists.", checked.toString(), Tone.SUCCESS);
+				String detail = Files.isDirectory(checked)
+						? tr("lnk.status.found.folder")
+						: tr("lnk.status.found.file");
+				return new TargetStatus(tr("lnk.status.found"), detail, checked.toString(), Tone.SUCCESS);
 			}
-			return new TargetStatus("Target missing", "The stored target path does not currently exist.",
+			return new TargetStatus(tr("lnk.status.missing"), tr("lnk.status.missing.detail"),
 					checked.toString(), Tone.WARNING);
 		} catch (InvalidPathException | SecurityException e) {
-			return new TargetStatus("Not checkable", "The target path could not be checked: " + e.getMessage(),
+			return new TargetStatus(tr("lnk.status.not_checkable"),
+					tr("lnk.status.not_checkable.detail", String.valueOf(e.getMessage())),
 					expanded, Tone.NEUTRAL);
 		}
 	}
@@ -609,38 +618,38 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 		if (linkInfo != null) {
 			VolumeID volume = linkInfo.getVolumeID();
 			if (volume != null) {
-				add(rows, "Drive type", driveType(volume.getDriveType()), false);
-				add(rows, "Volume label", clean(volume.getLabel()), false);
-				add(rows, "Volume serial", String.format("0x%08X", volume.getSerialNumber()), true);
+				add(rows, tr("lnk.row.drive_type"), driveType(volume.getDriveType()), false);
+				add(rows, tr("lnk.row.volume_label"), clean(volume.getLabel()), false);
+				add(rows, tr("lnk.row.volume_serial"), String.format("0x%08X", volume.getSerialNumber()), true);
 			}
 
 			CNRLink network = linkInfo.getCommonNetworkRelativeLink();
 			if (network != null) {
-				add(rows, "Network share", clean(network.getNetName()), true);
-				add(rows, "Network device", clean(network.getDeviceName()), true);
-				add(rows, "Network type", String.format("0x%08X", network.getNetworkType()), true);
+				add(rows, tr("lnk.row.network_share"), clean(network.getNetName()), true);
+				add(rows, tr("lnk.row.network_device"), clean(network.getDeviceName()), true);
+				add(rows, tr("lnk.row.network_type"), String.format("0x%08X", network.getNetworkType()), true);
 			}
 
-			add(rows, "Common suffix", clean(linkInfo.getCommonPathSuffix()), true);
-			add(rows, "Local base path", clean(linkInfo.getLocalBasePath()), true);
+			add(rows, tr("lnk.row.common_suffix"), clean(linkInfo.getCommonPathSuffix()), true);
+			add(rows, tr("lnk.row.local_base_path"), clean(linkInfo.getLocalBasePath()), true);
 		}
 
 		Tracker tracker = tracker(link);
 		if (tracker != null) {
-			add(rows, "Tracked machine", clean(tracker.getNetbiosName()), false);
+			add(rows, tr("lnk.row.tracked_machine"), clean(tracker.getNetbiosName()), false);
 		}
 	}
 
 	private static String driveType(int driveType) {
 		return switch (driveType) {
-			case VolumeID.DRIVE_NO_ROOT_DIR -> "No root";
-			case VolumeID.DRIVE_REMOVABLE -> "Removable";
-			case VolumeID.DRIVE_FIXED -> "Fixed";
-			case VolumeID.DRIVE_REMOTE -> "Network";
-			case VolumeID.DRIVE_CDROM -> "CD-ROM";
-			case VolumeID.DRIVE_RAMDISK -> "RAM disk";
-			case VolumeID.DRIVE_UNKNOWN -> "Unknown";
-			default -> "Type " + driveType;
+			case VolumeID.DRIVE_NO_ROOT_DIR -> tr("lnk.drive.no_root");
+			case VolumeID.DRIVE_REMOVABLE -> tr("lnk.drive.removable");
+			case VolumeID.DRIVE_FIXED -> tr("lnk.drive.fixed");
+			case VolumeID.DRIVE_REMOTE -> tr("lnk.drive.network");
+			case VolumeID.DRIVE_CDROM -> tr("lnk.drive.cdrom");
+			case VolumeID.DRIVE_RAMDISK -> tr("lnk.drive.ramdisk");
+			case VolumeID.DRIVE_UNKNOWN -> tr("lnk.drive.unknown");
+			default -> tr("lnk.drive.other", String.valueOf(driveType));
 		};
 	}
 
@@ -649,25 +658,25 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			return List.of();
 		}
 		List<String> values = new ArrayList<>();
-		add(values, flags.hasLinkTargetIDList(), "Target ID list");
-		add(values, flags.hasLinkInfo(), "LinkInfo");
-		add(values, flags.hasName(), "Description");
-		add(values, flags.hasRelativePath(), "Relative path");
-		add(values, flags.hasWorkingDir(), "Working dir");
-		add(values, flags.hasArguments(), "Arguments");
-		add(values, flags.hasIconLocation(), "Custom icon");
-		add(values, flags.isUnicode(), "Unicode");
-		add(values, flags.hasExpString(), "Environment target");
-		add(values, flags.hasExpIcon(), "Environment icon");
-		add(values, flags.runAsUser(), "Run as user");
-		add(values, flags.runInSeparateProcess(), "Separate process");
-		add(values, flags.runWithShimLayer(), "Shim layer");
-		add(values, flags.preferEnvironmentPath(), "Prefer env path");
-		add(values, flags.enableTargetMetadata(), "Target metadata");
-		add(values, flags.disableLinkPathTracking(), "Path tracking disabled");
-		add(values, flags.disableKnownFolderTracking(), "Known-folder tracking disabled");
-		add(values, flags.allowLinkToLink(), "Link-to-link");
-		add(values, flags.keepLocalIDListForUNCTarget(), "UNC ID list");
+		add(values, flags.hasLinkTargetIDList(), "lnk.flag.target_id_list");
+		add(values, flags.hasLinkInfo(), "lnk.flag.link_info");
+		add(values, flags.hasName(), "lnk.row.description");
+		add(values, flags.hasRelativePath(), "lnk.row.relative_path");
+		add(values, flags.hasWorkingDir(), "lnk.flag.working_dir");
+		add(values, flags.hasArguments(), "lnk.row.arguments");
+		add(values, flags.hasIconLocation(), "lnk.flag.custom_icon");
+		add(values, flags.isUnicode(), "lnk.flag.unicode");
+		add(values, flags.hasExpString(), "lnk.row.environment_target");
+		add(values, flags.hasExpIcon(), "lnk.flag.environment_icon");
+		add(values, flags.runAsUser(), "lnk.flag.run_as_user");
+		add(values, flags.runInSeparateProcess(), "lnk.flag.separate_process");
+		add(values, flags.runWithShimLayer(), "lnk.flag.shim_layer");
+		add(values, flags.preferEnvironmentPath(), "lnk.flag.prefer_env_path");
+		add(values, flags.enableTargetMetadata(), "lnk.flag.target_metadata");
+		add(values, flags.disableLinkPathTracking(), "lnk.flag.path_tracking_disabled");
+		add(values, flags.disableKnownFolderTracking(), "lnk.flag.known_folder_tracking_disabled");
+		add(values, flags.allowLinkToLink(), "lnk.flag.link_to_link");
+		add(values, flags.keepLocalIDListForUNCTarget(), "lnk.flag.unc_id_list");
 		return values;
 	}
 
@@ -676,34 +685,35 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 			return List.of();
 		}
 		List<String> values = new ArrayList<>();
-		add(values, flags.isNormal(), "Normal");
-		add(values, flags.isDirecory(), "Directory");
-		add(values, flags.isArchive(), "Archive");
-		add(values, flags.isReadonly(), "Read-only");
-		add(values, flags.isHidden(), "Hidden");
-		add(values, flags.isSystem(), "System");
-		add(values, flags.isCompressed(), "Compressed");
-		add(values, flags.isEncypted(), "Encrypted");
-		add(values, flags.isOffline(), "Offline");
-		add(values, flags.isTemporary(), "Temporary");
-		add(values, flags.isReparsePoint(), "Reparse point");
-		add(values, flags.isSparseFile(), "Sparse file");
-		add(values, flags.isNotContentIndexed(), "Not indexed");
+		add(values, flags.isNormal(), "lnk.attr.normal");
+		add(values, flags.isDirecory(), "lnk.attr.directory");
+		add(values, flags.isArchive(), "lnk.attr.archive");
+		add(values, flags.isReadonly(), "lnk.attr.readonly");
+		add(values, flags.isHidden(), "lnk.attr.hidden");
+		add(values, flags.isSystem(), "lnk.attr.system");
+		add(values, flags.isCompressed(), "lnk.attr.compressed");
+		add(values, flags.isEncypted(), "lnk.attr.encrypted");
+		add(values, flags.isOffline(), "lnk.attr.offline");
+		add(values, flags.isTemporary(), "lnk.attr.temporary");
+		add(values, flags.isReparsePoint(), "lnk.attr.reparse_point");
+		add(values, flags.isSparseFile(), "lnk.attr.sparse_file");
+		add(values, flags.isNotContentIndexed(), "lnk.attr.not_indexed");
 		return values;
 	}
 
-	private static void add(List<String> values, boolean present, String label) {
+	/** Adds the translated text for {@code labelKey} when {@code present}. */
+	private static void add(List<String> values, boolean present, String labelKey) {
 		if (present) {
-			values.add(label);
+			values.add(tr(labelKey));
 		}
 	}
 
 	private static String showCommand(int showCommand) {
 		return switch (showCommand) {
-			case ShellLinkHeader.SW_SHOWMAXIMIZED -> "Maximized";
-			case ShellLinkHeader.SW_SHOWMINNOACTIVE -> "Minimized";
-			case ShellLinkHeader.SW_SHOWNORMAL -> "Normal window";
-			default -> "Command " + showCommand;
+			case ShellLinkHeader.SW_SHOWMAXIMIZED -> tr("lnk.show.maximized");
+			case ShellLinkHeader.SW_SHOWMINNOACTIVE -> tr("lnk.show.minimized");
+			case ShellLinkHeader.SW_SHOWNORMAL -> tr("lnk.show.normal");
+			default -> tr("lnk.show.other", String.valueOf(showCommand));
 		};
 	}
 
@@ -737,15 +747,15 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 		}
 		List<String> values = new ArrayList<>();
 		if (flags.runAsUser()) {
-			values.add("Run as user");
+			values.add(tr("lnk.flag.run_as_user"));
 		}
 		if (flags.runInSeparateProcess()) {
-			values.add("Separate process");
+			values.add(tr("lnk.flag.separate_process"));
 		}
 		if (flags.runWithShimLayer()) {
-			values.add("Compatibility shim");
+			values.add(tr("lnk.run.compat_shim"));
 		}
-		return values.isEmpty() ? "Default" : String.join(", ", values);
+		return values.isEmpty() ? tr("lnk.run.default") : String.join(", ", values);
 	}
 
 	private static String environmentTarget(ShellLink link) {
@@ -826,7 +836,7 @@ public class QuickViewLnkPlugin implements QuickViewNuclrPlugin {
 		if (path != null && path.getFileName() != null) {
 			return path.getFileName().toString();
 		}
-		return "Windows shortcut";
+		return tr("lnk.default_name");
 	}
 
 	private static String sourcePath(NuclrResource resource) {

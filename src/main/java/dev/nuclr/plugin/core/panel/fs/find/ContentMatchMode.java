@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.find;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 /**
  * How the "Containing" text is interpreted when matching file content. Drives the
  * {@code Text | Regex | Hex} segmented control in {@link FindFileDialog}.
@@ -24,22 +26,22 @@ package dev.nuclr.plugin.core.panel.fs.find;
 public enum ContentMatchMode {
 
 	/** Literal substring search. Honours case-sensitive / whole-word toggles. */
-	TEXT("Text"),
+	TEXT("find.mode.text"),
 
 	/** Java regular expression search. Honours the case-sensitive toggle. */
-	REGEX("Regex"),
+	REGEX("find.mode.regex"),
 
 	/** Byte-pattern search: the query is a sequence of hex octets (e.g. {@code 89 50 4E 47}). */
-	HEX("Hex");
+	HEX("find.mode.hex");
 
-	private final String label;
+	private final String labelKey;
 
-	ContentMatchMode(String label) {
-		this.label = label;
+	ContentMatchMode(String labelKey) {
+		this.labelKey = labelKey;
 	}
 
 	/** Human-readable label shown on the segmented toggle button. */
 	public String label() {
-		return label;
+		return tr(labelKey);
 	}
 }

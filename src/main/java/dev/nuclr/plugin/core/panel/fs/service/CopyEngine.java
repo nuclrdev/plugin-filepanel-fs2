@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -168,7 +170,7 @@ public final class CopyEngine {
 
 		if (directory && TransferPaths.isSameOrInside(source, target)) {
 			// Copying a folder into itself would enumerate the copy it is creating, forever.
-			refuse(source, target, "Cannot copy a folder into itself");
+			refuse(source, target, tr("copy.error.folder.into.itself"));
 			return;
 		}
 
@@ -190,13 +192,13 @@ public final class CopyEngine {
 				return;
 			}
 			if (placement.append) {
-				refuse(source, target, "Cannot append a folder to a file");
+				refuse(source, target, tr("transfer.error.append.folder"));
 				return;
 			}
 			effectiveTarget = placement.target;
 			if (TransferPaths.isSameOrInside(source, effectiveTarget)) {
 				// A typed rename can point back inside the source; the check in copyEntry saw only the original target.
-				refuse(source, effectiveTarget, "Cannot copy a folder into itself");
+				refuse(source, effectiveTarget, tr("copy.error.folder.into.itself"));
 				return;
 			}
 			if (effectiveTarget.equals(target)) {
@@ -253,7 +255,7 @@ public final class CopyEngine {
 		if (TransferPaths.isSameFile(source, effectiveTarget)) {
 			// Overwrite would truncate the very file being read, and append would never end.
 			// Only a rename to a free name can copy a file beside itself.
-			refuse(source, effectiveTarget, "Cannot copy a file onto itself");
+			refuse(source, effectiveTarget, tr("copy.error.file.onto.itself"));
 			return;
 		}
 
@@ -319,14 +321,14 @@ public final class CopyEngine {
 				return;
 			}
 			if (placement.append) {
-				refuse(source, target, "Cannot append to a symbolic link");
+				refuse(source, target, tr("copy.error.append.symlink"));
 				return;
 			}
 			effectiveTarget = placement.target;
 		}
 
 		if (TransferPaths.sameLocation(source, effectiveTarget)) {
-			refuse(source, effectiveTarget, "Cannot copy a link onto itself");
+			refuse(source, effectiveTarget, tr("copy.error.link.onto.itself"));
 			return;
 		}
 

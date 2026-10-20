@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service.move;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -182,7 +184,7 @@ public final class MoveEngine {
 				return; // a directory moved onto itself: nothing to do (don't prompt per child)
 			}
 			if (TransferPaths.isSameOrInside(source, target)) {
-				refuse(source, target, "Cannot move a folder into itself");
+				refuse(source, target, tr("move.error.folder.into.itself"));
 				return;
 			}
 			moveDirectory(source, target);
@@ -294,14 +296,14 @@ public final class MoveEngine {
 				return;
 			}
 			if (placement.append) {
-				refuse(source, target, "Cannot append a folder to a file");
+				refuse(source, target, tr("transfer.error.append.folder"));
 				return;
 			}
 			if (!placement.target.equals(target)) {
 				// Renamed: move the tree to the new name, leaving the existing file alone. A typed
 				// name can point back inside the source, which moveEntry's check never saw.
 				if (TransferPaths.isSameOrInside(source, placement.target)) {
-					refuse(source, placement.target, "Cannot move a folder into itself");
+					refuse(source, placement.target, tr("move.error.folder.into.itself"));
 					return;
 				}
 				moveDirectory(source, placement.target);

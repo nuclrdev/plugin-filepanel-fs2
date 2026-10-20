@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.usercommands;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.event.KeyEvent;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -75,8 +77,8 @@ public class ShortcutField extends FlatTextField {
 
 		setEditable(false);
 		setColumns(6);
-		setPlaceholderText("Press a key");
-		setToolTipText("Press a key to assign it. Backspace or Delete clears it.");
+		setPlaceholderText(tr("usercommands.shortcut.placeholder"));
+		setToolTipText(tr("usercommands.shortcut.tooltip"));
 	}
 
 	/**

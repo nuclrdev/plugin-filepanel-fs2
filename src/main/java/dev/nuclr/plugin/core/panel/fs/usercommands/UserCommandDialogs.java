@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.usercommands;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Font;
@@ -72,7 +74,7 @@ final class UserCommandDialogs {
 		JPanel message = new JPanel();
 		message.setLayout(new BoxLayout(message, BoxLayout.Y_AXIS));
 
-		JLabel question = new JLabel("Run this command?");
+		JLabel question = new JLabel(tr("usercommands.confirm.run.question"));
 		question.setAlignmentX(Component.LEFT_ALIGNMENT);
 		message.add(question);
 		message.add(Box.createVerticalStrut(10));
@@ -84,13 +86,14 @@ final class UserCommandDialogs {
 
 		if (workingDirectory != null) {
 			message.add(Box.createVerticalStrut(10));
-			JTextArea folder = plainText("in  " + workingDirectory);
+			JTextArea folder = plainText(tr("usercommands.confirm.run.in", workingDirectory));
 			folder.setAlignmentX(Component.LEFT_ALIGNMENT);
 			message.add(folder);
 		}
 
 		SoundEvents.warning(context);
-		boolean proceed = choose(command.name().isEmpty() ? "Run command" : command.name(), message, "Run", "Cancel");
+		boolean proceed = choose(command.name().isEmpty() ? tr("usercommands.confirm.run.title") : command.name(), message,
+				tr("usercommands.confirm.run.button"), tr("common.cancel"));
 		if (!proceed) {
 			SoundEvents.cancel(context);
 		}
@@ -107,8 +110,9 @@ final class UserCommandDialogs {
 	static boolean confirmDelete(UserCommand command, NuclrPluginContext context) {
 
 		SoundEvents.warning(context);
-		boolean proceed = choose("Delete user command",
-				plainText("Delete user command \"" + command.name() + "\"?"), "Delete", "Cancel");
+		boolean proceed = choose(tr("usercommands.confirm.delete.title"),
+				plainText(tr("usercommands.confirm.delete.message", command.name())),
+				tr("usercommands.confirm.delete.button"), tr("common.cancel"));
 		if (!proceed) {
 			SoundEvents.cancel(context);
 		}

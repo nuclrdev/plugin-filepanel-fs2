@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -66,12 +68,12 @@ final class CopyProgressDialog {
 
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
 
-		JLabel itemLabel = new JLabel("Preparing…");
+		JLabel itemLabel = new JLabel(tr("transfer.progress.preparing"));
 		JProgressBar bar = new JProgressBar(0, 100);
 		bar.setStringPainted(true);
-		JButton cancelButton = new JButton("Cancel");
+		JButton cancelButton = new JButton(tr("common.cancel"));
 
-		JDialog dialog = new JDialog(owner, "Copy", JDialog.ModalityType.APPLICATION_MODAL);
+		JDialog dialog = new JDialog(owner, tr("copy.title"), JDialog.ModalityType.APPLICATION_MODAL);
 		dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 
 		JPanel north = new JPanel(new BorderLayout(0, 6));
@@ -98,13 +100,13 @@ final class CopyProgressDialog {
 			cancelled.set(true);
 			SoundEvents.cancel(context);
 			cancelButton.setEnabled(false);
-			itemLabel.setText("Cancelling…");
+			itemLabel.setText(tr("transfer.progress.cancelling"));
 		});
 
 		NuclrPluginCallback callback = new NuclrPluginCallback() {
 			@Override
 			public void onStart(String description) {
-				SwingUtilities.invokeLater(() -> itemLabel.setText("Copying " + (description == null ? "" : description)));
+				SwingUtilities.invokeLater(() -> itemLabel.setText(tr("copy.progress.item", description == null ? "" : description)));
 			}
 
 			@Override

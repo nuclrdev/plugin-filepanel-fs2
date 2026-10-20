@@ -1,5 +1,7 @@
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.REFRESH_SOURCE_PLUGIN_UUID;
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH;
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
@@ -161,6 +163,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public void preinit(NuclrPluginContext context) {
 
 		this.context = context;
+		Messages.use(context.getLocale());
 		if (monitorsDirectoryChanges()) {
 			this.directoryMonitor = new DirectoryChangeMonitor(this::emitWatchedFolderRefresh);
 		}
@@ -214,7 +217,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		});
 
 		pluginRoots.setMenuItems(resources);
-		pluginRoots.setTitle("Local Filesystem");
+		pluginRoots.setTitle(tr("panel.drives.title"));
 
 		return pluginRoots;
 	}
@@ -339,23 +342,23 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	}
 
 	private static void addDefaultMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
-		items.add(menu("User Commands", "F2", PluginActions.USER_COMMANDS));
-		items.add(menu("View", "F3", "filepanel.view"));
-		items.add(menu("Edit", "F4", "filepanel.edit"));
-		items.add(menu("Copy", "F5", "filepanel.copy"));
-		items.add(menu(isDirectory ? "Move" : "Rename/Move", "F6", "filepanel.move"));
-		items.add(menu("Make Folder", "F7", "filepanel.makeFolder"));
-		items.add(menu("Delete", "F8", "filepanel.delete"));
+		items.add(menu(tr("menu.user.commands"), "F2", PluginActions.USER_COMMANDS));
+		items.add(menu(tr("menu.view"), "F3", "filepanel.view"));
+		items.add(menu(tr("menu.edit"), "F4", "filepanel.edit"));
+		items.add(menu(tr("menu.copy"), "F5", "filepanel.copy"));
+		items.add(menu(isDirectory ? tr("menu.move") : tr("menu.rename.move"), "F6", "filepanel.move"));
+		items.add(menu(tr("menu.make.folder"), "F7", "filepanel.makeFolder"));
+		items.add(menu(tr("menu.delete"), "F8", "filepanel.delete"));
 	}
 
 	private static void addAltMenuItems(List<NuclrMenuResource> items) {
-		items.add(menu("Find", "Alt+F7", "find"));
-		items.add(menu("Tree", "Alt+F10", FileTreeAction));
-		items.add(menu("Folders history", "Alt+F12", FolderHistoryAction));
+		items.add(menu(tr("menu.find"), "Alt+F7", "find"));
+		items.add(menu(tr("menu.tree"), "Alt+F10", FileTreeAction));
+		items.add(menu(tr("menu.folders.history"), "Alt+F12", FolderHistoryAction));
 	}
 
 	private static void addCtrlMenuItems(List<NuclrMenuResource> items) {
-		items.add(menu("Drive Information", "Ctrl+L", "show.drive.information"));
+		items.add(menu(tr("menu.drive.information"), "Ctrl+L", "show.drive.information"));
 	}
 
 	/**
@@ -364,24 +367,29 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	 * omitted because the commander does not provide comparators for those plugin-specific values.
 	 */
 	private static void addSortMenuItems(List<NuclrMenuResource> items) {
-		items.add(sortByColumn("Name", "Ctrl+F3", "name"));
-		items.add(sortByColumn("Extension", "Ctrl+F4", "ext"));
-		items.add(sortByColumn("Modified", "Ctrl+F5", "modified"));
-		items.add(sortByColumn("Size", "Ctrl+F6", "size"));
-		items.add(menu("Unsort", "Ctrl+F7", "filepanel.sort:unsorted"));
-		items.add(sortByColumn("Created", "Ctrl+F8", "created"));
-		items.add(sortByColumn("Accessed", "Ctrl+F9", "access"));
-		items.add(menu("Sort", "Ctrl+F12", "filepanel.sort:dialog"));
+		items.add(sortByColumn("Name", tr("menu.sort.name"), "Ctrl+F3", "name"));
+		items.add(sortByColumn("Extension", tr("menu.sort.extension"), "Ctrl+F4", "ext"));
+		items.add(sortByColumn("Modified", tr("menu.sort.modified"), "Ctrl+F5", "modified"));
+		items.add(sortByColumn("Size", tr("menu.sort.size"), "Ctrl+F6", "size"));
+		items.add(menu(tr("menu.unsort"), "Ctrl+F7", "filepanel.sort:unsorted"));
+		items.add(sortByColumn("Created", tr("menu.sort.created"), "Ctrl+F8", "created"));
+		items.add(sortByColumn("Accessed", tr("menu.sort.accessed"), "Ctrl+F9", "access"));
+		items.add(menu(tr("menu.sort"), "Ctrl+F12", "filepanel.sort:dialog"));
 	}
 
-	private static NuclrMenuResource sortByColumn(String columnName, String functionKey, String criterion) {
-		return menu(columnName, functionKey, "filepanel.sort:" + criterion + ":" + columnName);
+	/**
+	 * @param columnName the table column the sort is shown on; a data key, so always English
+	 * @param label      the name shown on the function-key bar, in the user's language
+	 */
+	private static NuclrMenuResource sortByColumn(String columnName, String label, String functionKey,
+			String criterion) {
+		return menu(label, functionKey, "filepanel.sort:" + criterion + ":" + columnName);
 	}
 
 	private static void addShiftMenuItems(List<NuclrMenuResource> items, boolean isDirectory) {
-		items.add(menu("Create file", "Shift+F4", "createFile"));
-		items.add(menu("Go to path", GO_TO_PATH_SHORTCUT, "goToPath"));
-		items.add(menu("Delete Permanently", "Shift+F8", "deletePermanent"));
+		items.add(menu(tr("menu.create.file"), "Shift+F4", "createFile"));
+		items.add(menu(tr("menu.go.to.path"), GO_TO_PATH_SHORTCUT, "goToPath"));
+		items.add(menu(tr("menu.delete.permanently"), "Shift+F8", "deletePermanent"));
 	}
 
 	private static NuclrMenuResource menu(String name, String functionKey, String eventType) {
@@ -455,7 +463,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 			Path path = resource.getPath();
 			boolean directory = resource.isFolder();
 			boolean link = resource.isLink();
-			String type = link ? "Link" : (directory ? "Folder" : humanReadableSize(sizeBytes(resource, directory)));
+			String type = link ? tr("panel.summary.link")
+					: (directory ? tr("panel.summary.folder") : humanReadableSize(sizeBytes(resource, directory)));
 			String name = resource.getName() != null && !resource.getName().isBlank() ? resource.getName()
 					: path == null ? "" : path.getFileName() == null ? path.toString() : path.getFileName().toString();
 			return name + "  |  " + type;
@@ -471,7 +480,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 				totalBytes += sizeBytes(resource, false);
 			}
 		}
-		return "Bytes: " + humanReadableSize(totalBytes) + ",  files: " + fileCount + ",  folders: " + folderCount;
+		return tr("panel.summary.selection", humanReadableSize(totalBytes), String.valueOf(fileCount),
+				String.valueOf(folderCount));
 	}
 
 	private static long sizeBytes(NuclrResource resource, boolean directory) {
@@ -1101,7 +1111,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 						SoundEvents.confirmation(context);
 					} catch (IOException e) {
 						log.error("Failed to reveal {} in file manager: {}", r.getFullPath(), e.getMessage(), e);
-						Alerts.showError(context, "Failed to reveal in file manager", "<html>Could not reveal <b>\"" + r.getFullPath() + "\"</b> in the file manager.<br/>Error: " + e.getMessage() + "</html>");
+						Alerts.showError(context, tr("panel.reveal.error.title"),
+								tr("panel.reveal.error.message", r.getFullPath(), String.valueOf(e.getMessage())));
 					}
 				});
 		}
@@ -1331,7 +1342,7 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	 */
 	private void openResultsInTempPanel(FindFileRequest request, List<NuclrResource> results) {
 		NuclrResource tempRoot = TempFilePanelPlugin.tempPanelResource(
-				results, "Find: " + request.getNamePattern(), this.currentFolder);
+				results, tr("panel.find.results.title", request.getNamePattern()), this.currentFolder);
 
 		var payload = new java.util.HashMap<String, Object>();
 		payload.put("resource", tempRoot);
@@ -1365,8 +1376,8 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 		if (!Files.isDirectory(path)) {
 			SoundEvents.error(context);
 			JOptionPane.showMessageDialog(mainApplicationFrame(),
-					"This folder is no longer available:\n" + folder,
-					"Folders history", JOptionPane.WARNING_MESSAGE);
+					tr("panel.history.unavailable.message", folder),
+					tr("panel.history.unavailable.title"), JOptionPane.WARNING_MESSAGE);
 			return;
 		}
 
@@ -1433,13 +1444,13 @@ public class LocalFileSystemPlugin implements NuclrEventListener, FilePanelNuclr
 	public List<NuclrContextMenuItem> contextMenuItems(NuclrResource focusedResource, List<NuclrResource> selectedResources) {
 
 		return List.of(
-			NuclrContextMenuItem.builder().label("Open").actionType("filepanel.path.opened").build(),
-			NuclrContextMenuItem.builder().label("Reveal in File Manager").actionType("filepanel.path.open.in.explorer").build(),
+			NuclrContextMenuItem.builder().label(tr("panel.context.open")).actionType("filepanel.path.opened").build(),
+			NuclrContextMenuItem.builder().label(tr("panel.context.reveal")).actionType("filepanel.path.open.in.explorer").build(),
 			NuclrContextMenuItem.builder().separator(true).build(),
-			NuclrContextMenuItem.builder().label("Copy file(s)").actionType(PluginActions.CLIPBOARD_COPY_FILES).build(),
-			NuclrContextMenuItem.builder().label("Copy full path(s)").actionType(PluginActions.CLIPBOARD_COPY_FULL_PATHS).build(),
+			NuclrContextMenuItem.builder().label(tr("panel.context.copy.files")).actionType(PluginActions.CLIPBOARD_COPY_FILES).build(),
+			NuclrContextMenuItem.builder().label(tr("panel.context.copy.full.paths")).actionType(PluginActions.CLIPBOARD_COPY_FULL_PATHS).build(),
 			NuclrContextMenuItem.builder().separator(true).build(),
-			NuclrContextMenuItem.builder().label("Delete").actionType("filepanel.delete").build()
+			NuclrContextMenuItem.builder().label(tr("panel.context.delete")).actionType("filepanel.delete").build()
 		);
 	}
 

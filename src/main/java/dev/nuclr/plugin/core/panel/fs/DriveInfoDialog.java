@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.KeyboardFocusManager;
@@ -46,7 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 final class DriveInfoDialog {
 
-	private static final String TITLE = "Information";
 	private static final long GB = 1024L * 1024L * 1024L;
 	private static final long MB = 1024L * 1024L;
 	private static final DecimalFormat GROUPED = new DecimalFormat("#,##0");
@@ -73,7 +74,7 @@ final class DriveInfoDialog {
 	private static void render(DriveInfo info) {
 
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-		JDialog dialog = new JDialog(owner, TITLE, JDialog.ModalityType.APPLICATION_MODAL);
+		JDialog dialog = new JDialog(owner, tr("drive.info.title"), JDialog.ModalityType.APPLICATION_MODAL);
 		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
 		JTextArea area = new JTextArea(format(info));
@@ -85,7 +86,7 @@ final class DriveInfoDialog {
 		JScrollPane scroll = new JScrollPane(area);
 		scroll.setBorder(BorderFactory.createEmptyBorder());
 
-		JButton ok = new JButton("OK");
+		JButton ok = new JButton(tr("common.ok"));
 		ok.addActionListener(e -> dialog.dispose());
 
 		JPanel buttons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 8, 0));
@@ -112,24 +113,24 @@ final class DriveInfoDialog {
 	private static String format(DriveInfo info) {
 
 		String total = info.totalBytes() > 0
-				? sizeGb(info.totalBytes()) + "  (" + GROUPED.format(info.totalBytes()) + " bytes)"
+				? tr("drive.info.total.value", sizeGb(info.totalBytes()), GROUPED.format(info.totalBytes()))
 				: DASH;
 
 		String available;
 		if (info.totalBytes() > 0) {
 			int pct = info.availablePercent();
-			available = pct + "%, " + sizeGb(info.usableBytes())
-					+ "  (" + GROUPED.format(info.usableBytes()) + " bytes)";
+			available = tr("drive.info.available.value", String.valueOf(pct), sizeGb(info.usableBytes()),
+					GROUPED.format(info.usableBytes()));
 		} else {
 			available = DASH;
 		}
 
 		StringBuilder sb = new StringBuilder();
-		row(sb, "Drive", info.path() != null ? info.path().toString() : DASH);
-		row(sb, "Space, total", total);
-		row(sb, "Space, available", available);
-		row(sb, "Volume label", nvl(info.label()));
-		row(sb, "Serial number", nvl(info.serialNumber()));
+		row(sb, tr("drive.info.drive"), info.path() != null ? info.path().toString() : DASH);
+		row(sb, tr("drive.info.space.total"), total);
+		row(sb, tr("drive.info.space.available"), available);
+		row(sb, tr("drive.info.volume.label"), nvl(info.label()));
+		row(sb, tr("drive.info.serial.number"), nvl(info.serialNumber()));
 		return sb.toString().stripTrailing();
 	}
 
@@ -141,9 +142,9 @@ final class DriveInfoDialog {
 	/** Format bytes as whole GB (falling back to MB for small volumes), matching Windows' 1024-based "GB". */
 	private static String sizeGb(long bytes) {
 		if (bytes >= GB) {
-			return GROUPED.format(Math.round(bytes / (double) GB)) + " GB";
+			return tr("drive.info.size.gb", GROUPED.format(Math.round(bytes / (double) GB)));
 		}
-		return GROUPED.format(Math.round(bytes / (double) MB)) + " MB";
+		return tr("drive.info.size.mb", GROUPED.format(Math.round(bytes / (double) MB)));
 	}
 
 	private static String nvl(String s) {

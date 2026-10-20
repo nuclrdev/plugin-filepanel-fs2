@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,9 +56,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class ClipboardPasteService {
 
-	private static final String IMAGE_TITLE = "Paste image";
-	private static final String TEXT_TITLE = "Paste text";
-
 	private static final DateTimeFormatter NAME_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd HHmmss");
 
 	/** Drive-letter, UNC, root-relative and home-relative paths. */
@@ -71,7 +70,7 @@ public final class ClipboardPasteService {
 	 * @return the created file, or {@code null} when nothing was written
 	 */
 	public static Path pasteImage(NuclrResource currentFolder, BufferedImage image, NuclrPluginContext context) {
-		Path folder = writableFolder(currentFolder, IMAGE_TITLE, context);
+		Path folder = writableFolder(currentFolder, tr("paste.image.title"), context);
 		if (folder == null) {
 			return null;
 		}
@@ -80,8 +79,8 @@ public final class ClipboardPasteService {
 			return saveImage(folder, image, LocalDateTime.now());
 		} catch (IOException e) {
 			log.warn("Failed to save clipboard image in [{}]: {}", folder, e.getMessage(), e);
-			Alerts.showError(context, IMAGE_TITLE,
-					e.getMessage() != null ? e.getMessage() : "Could not save the image.");
+			Alerts.showError(context, tr("paste.image.title"),
+					e.getMessage() != null ? e.getMessage() : tr("paste.image.failed"));
 			return null;
 		}
 	}
@@ -93,7 +92,7 @@ public final class ClipboardPasteService {
 	 * @return the created file, or {@code null} when the user cancelled or nothing was written
 	 */
 	public static Path pasteText(NuclrResource currentFolder, String text, NuclrPluginContext context) {
-		Path folder = writableFolder(currentFolder, TEXT_TITLE, context);
+		Path folder = writableFolder(currentFolder, tr("paste.text.title"), context);
 		if (folder == null) {
 			return null;
 		}
@@ -114,11 +113,11 @@ public final class ClipboardPasteService {
 			try {
 				return saveText(folder, name, text);
 			} catch (IllegalArgumentException e) {
-				Alerts.showError(context, TEXT_TITLE, e.getMessage());
+				Alerts.showError(context, tr("paste.text.title"), e.getMessage());
 			} catch (IOException e) {
 				log.warn("Failed to save clipboard text in [{}]: {}", folder, e.getMessage(), e);
-				Alerts.showError(context, TEXT_TITLE,
-						e.getMessage() != null ? e.getMessage() : "Could not save the text.");
+				Alerts.showError(context, tr("paste.text.title"),
+						e.getMessage() != null ? e.getMessage() : tr("paste.text.failed"));
 				return null;
 			}
 		}
@@ -144,11 +143,11 @@ public final class ClipboardPasteService {
 	private static Path writableFolder(NuclrResource currentFolder, String title, NuclrPluginContext context) {
 		Path folder = currentFolder == null ? null : currentFolder.getPath();
 		if (folder == null || !Files.isDirectory(folder)) {
-			Alerts.showError(context, title, "No folder is open.");
+			Alerts.showError(context, title, tr("create.no.folder"));
 			return null;
 		}
 		if (!Files.isWritable(folder)) {
-			Alerts.showError(context, title, "The current folder is not writable.");
+			Alerts.showError(context, title, tr("create.folder.not.writable"));
 			return null;
 		}
 		return folder;
@@ -180,23 +179,23 @@ public final class ClipboardPasteService {
 	static Path saveText(Path folder, String enteredName, String text) throws IOException {
 		String name = enteredName == null ? "" : enteredName.trim();
 		if (name.isBlank()) {
-			throw new IllegalArgumentException("File name is required.");
+			throw new IllegalArgumentException(tr("create.name.required"));
 		}
 		if (CreateFileService.isInvalidSingleFileName(name)) {
-			throw new IllegalArgumentException("File name cannot contain path separators.");
+			throw new IllegalArgumentException(tr("create.name.separators"));
 		}
 
 		Path target;
 		try {
 			target = folder.resolve(name);
 		} catch (InvalidPathException e) {
-			throw new IllegalArgumentException("The file name is not valid.", e);
+			throw new IllegalArgumentException(tr("create.name.invalid"), e);
 		}
 		try {
 			Files.writeString(target, withPlatformLineEndings(text), StandardCharsets.UTF_8,
 					StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
 		} catch (FileAlreadyExistsException e) {
-			throw new IllegalArgumentException("A file or folder with that name already exists.", e);
+			throw new IllegalArgumentException(tr("create.name.exists"), e);
 		}
 		return target;
 	}

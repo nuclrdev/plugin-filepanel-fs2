@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -51,8 +53,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 final class DeleteDialogs {
 
-	private static final String ERROR_TITLE = "Delete";
-
 	private DeleteDialogs() {
 	}
 
@@ -72,7 +72,7 @@ final class DeleteDialogs {
 		ConfirmationContent content = confirmationContent(sources, permanent);
 		Component message = buildText(content.message(), sources.size() > 1);
 		SoundEvents.warning(context);
-		boolean proceed = choose(content.title(), message, content.proceedText(), "Cancel");
+		boolean proceed = choose(content.title(), message, content.proceedText(), tr("common.cancel"));
 		if (!proceed) {
 			SoundEvents.cancel(context);
 		}
@@ -85,28 +85,31 @@ final class DeleteDialogs {
 		String header;
 		if (single) {
 			boolean folder = !sources.isEmpty() && sources.get(0).isFolder();
-			String object = folder ? "folder" : "file";
-			header = permanent
-					? "Permanently delete the " + object + "?"
-					: "Move the " + object + " to Trash or Recycle Bin?";
+			if (permanent) {
+				header = folder ? tr("delete.confirm.permanent.folder") : tr("delete.confirm.permanent.file");
+			} else {
+				header = folder ? tr("delete.confirm.trash.folder") : tr("delete.confirm.trash.file");
+			}
 		} else {
 			header = permanent
-					? "Permanently delete the selected objects?"
-					: "Move the selected objects to Trash or Recycle Bin?";
+					? tr("delete.confirm.permanent.many")
+					: tr("delete.confirm.trash.many");
 		}
 
-		String explanation = permanent
-				? "This action cannot be undone."
-				: "You can restore " + (single ? "it" : "them")
-						+ " later from the operating system's Trash or Recycle Bin.";
+		String explanation;
+		if (permanent) {
+			explanation = tr("delete.explain.permanent");
+		} else {
+			explanation = single ? tr("delete.explain.trash.one") : tr("delete.explain.trash.many");
+		}
 		StringBuilder sb = new StringBuilder(header).append('\n')
 				.append(explanation).append("\n\n");
 		for (NuclrResource r : sources) {
 			sb.append(fullPath(r)).append('\n');
 		}
 
-		String title = permanent ? "Delete Permanently" : "Move to Trash";
-		String proceedText = permanent ? "Delete Permanently" : "Move to Trash";
+		String title = permanent ? tr("delete.title.permanent") : tr("delete.title.trash");
+		String proceedText = permanent ? tr("delete.button.permanent") : tr("delete.button.trash");
 		return new ConfirmationContent(title, sb.toString().stripTrailing(), proceedText);
 	}
 
@@ -128,10 +131,10 @@ final class DeleteDialogs {
 	/** @return true to Skip (continue with the next item), false to Abort the operation. */
 	static boolean error(String name, Exception e, NuclrPluginContext context) {
 
-		String detail = e == null || e.getMessage() == null ? "Could not delete the object." : e.getMessage();
-		Component message = buildText("Failed to delete:\n" + name + "\n\n" + detail, false);
+		String detail = e == null || e.getMessage() == null ? tr("delete.error.unknown") : e.getMessage();
+		Component message = buildText(tr("delete.error.message", name, detail), false);
 		SoundEvents.error(context);
-		boolean skip = choose(ERROR_TITLE, message, "Skip", "Abort");
+		boolean skip = choose(tr("delete.error.title"), message, tr("common.skip"), tr("delete.error.abort"));
 		if (!skip) {
 			SoundEvents.cancel(context);
 		}

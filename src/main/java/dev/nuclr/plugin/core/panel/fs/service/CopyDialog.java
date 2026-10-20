@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -55,8 +57,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 final class CopyDialog {
 
-	private static final String TITLE = "Copy";
-
 	private CopyDialog() {
 	}
 
@@ -81,7 +81,7 @@ final class CopyDialog {
 	private static CopyOptions build(String header, Path defaultTarget) {
 
 		Window owner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-		JDialog dialog = new JDialog(owner, TITLE, JDialog.ModalityType.APPLICATION_MODAL);
+		JDialog dialog = new JDialog(owner, tr("copy.title"), JDialog.ModalityType.APPLICATION_MODAL);
 		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
 		// --- destination ---
@@ -89,34 +89,35 @@ final class CopyDialog {
 				defaultTarget != null ? defaultTarget.toString() : "", 40);
 
 		JPanel destPanel = new JPanel(new BorderLayout(0, 4));
-		destPanel.add(new JLabel("Copy " + header + " to:"), BorderLayout.NORTH);
+		destPanel.add(new JLabel(tr("copy.dialog.prompt", header)), BorderLayout.NORTH);
 		destPanel.add(destField, BorderLayout.CENTER);
 
 		// --- access rights ---
-		JRadioButton rDefault = new JRadioButton("Default", true);
-		JRadioButton rCopy = new JRadioButton("Copy");
-		JRadioButton rInherit = new JRadioButton("Inherit");
+		JRadioButton rDefault = new JRadioButton(tr("transfer.access.default"), true);
+		JRadioButton rCopy = new JRadioButton(tr("transfer.access.copy"));
+		JRadioButton rInherit = new JRadioButton(tr("transfer.access.inherit"));
 		ButtonGroup accessGroup = new ButtonGroup();
 		accessGroup.add(rDefault);
 		accessGroup.add(rCopy);
 		accessGroup.add(rInherit);
 
 		JPanel accessPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
-		accessPanel.setBorder(BorderFactory.createTitledBorder("Access rights"));
+		accessPanel.setBorder(BorderFactory.createTitledBorder(tr("transfer.access.title")));
 		accessPanel.add(rDefault);
 		accessPanel.add(rCopy);
 		accessPanel.add(rInherit);
 
 		// --- conflict handling + flags ---
 		JComboBox<String> existing = new JComboBox<>(new String[] {
-				"Ask", "Overwrite", "Skip", "Rename", "Append", "Only newer file(s)" });
-		JCheckBox askReadOnly = new JCheckBox("Also ask on R/O files", true);
+				tr("transfer.existing.ask"), tr("transfer.existing.overwrite"), tr("transfer.existing.skip"),
+				tr("transfer.existing.rename"), tr("transfer.existing.append"), tr("transfer.existing.only.newer") });
+		JCheckBox askReadOnly = new JCheckBox(tr("transfer.ask.read.only"), true);
 
-		JCheckBox preserve = new JCheckBox("Preserve all timestamps");
-		JCheckBox symlink = new JCheckBox("Copy contents of symbolic links");
+		JCheckBox preserve = new JCheckBox(tr("transfer.preserve.timestamps"));
+		JCheckBox symlink = new JCheckBox(tr("transfer.follow.symlinks"));
 
 		JPanel existingRow = new JPanel(new BorderLayout(8, 0));
-		existingRow.add(new JLabel("Already existing files:"), BorderLayout.WEST);
+		existingRow.add(new JLabel(tr("transfer.existing.label")), BorderLayout.WEST);
 		existingRow.add(existing, BorderLayout.CENTER);
 
 		JPanel optionsPanel = new JPanel();
@@ -128,8 +129,8 @@ final class CopyDialog {
 		optionsPanel.add(symlink);
 
 		// --- buttons ---
-		JButton copyButton = new JButton("Copy");
-		JButton cancelButton = new JButton("Cancel");
+		JButton copyButton = new JButton(tr("copy.button"));
+		JButton cancelButton = new JButton(tr("common.cancel"));
 
 		final CopyOptions[] chosen = new CopyOptions[1];
 

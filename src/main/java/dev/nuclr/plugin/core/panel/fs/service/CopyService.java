@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
 
 import java.io.InputStream;
@@ -46,8 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CopyService {
 
-	private static final String DialogTitle = "Copy";
-
 	/**
 	 * Copy the selected (or focused) resources into {@code currentFolder}.
 	 *
@@ -68,14 +68,14 @@ public class CopyService {
 
 		Path destination = currentFolder != null ? currentFolder.getPath() : null;
 		if (destination == null || !Files.isDirectory(destination)) {
-			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
+			Alerts.showError(context, tr("copy.title"), tr("transfer.destination.not.folder"));
 			return false;
 		}
 
 		try (TemporarySources materialized = collectSources(selectedResources, focusedResource)) {
 			List<Path> sources = materialized.paths();
 			if (sources.isEmpty()) {
-				Alerts.showError(context, DialogTitle, "There is nothing to copy.");
+				Alerts.showError(context, tr("copy.title"), tr("copy.nothing"));
 				return false;
 			}
 
@@ -157,7 +157,7 @@ public class CopyService {
 
 		Path destination = folder != null ? folder.getPath() : null;
 		if (destination == null || !Files.isDirectory(destination)) {
-			Alerts.showError(context, DialogTitle, "The destination is not a folder.");
+			Alerts.showError(context, tr("copy.title"), tr("transfer.destination.not.folder"));
 			return false;
 		}
 
@@ -283,6 +283,6 @@ public class CopyService {
 			Path name = sources.get(0).getFileName();
 			return name != null ? name.toString() : sources.get(0).toString();
 		}
-		return sources.size() + " items";
+		return tr("transfer.items", String.valueOf(sources.size()));
 	}
 }

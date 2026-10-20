@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs.service;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -32,8 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public final class CreateFileService {
 
-	private static final String DIALOG_TITLE = "Create file";
-
 	private CreateFileService() {
 	}
 
@@ -41,11 +41,11 @@ public final class CreateFileService {
 			NuclrPluginContext context) {
 		Path parent = currentFolder == null ? null : currentFolder.getPath();
 		if (parent == null || !Files.isDirectory(parent)) {
-			Alerts.showError(context, DIALOG_TITLE, "No folder is open.");
+			Alerts.showError(context, tr("create.file.title"), tr("create.no.folder"));
 			return null;
 		}
 		if (!Files.isWritable(parent)) {
-			Alerts.showError(context, DIALOG_TITLE, "The current folder is not writable.");
+			Alerts.showError(context, tr("create.file.title"), tr("create.folder.not.writable"));
 			return null;
 		}
 
@@ -60,7 +60,7 @@ public final class CreateFileService {
 		try {
 			return create(parent, entered[0], callback);
 		} catch (IllegalArgumentException e) {
-			Alerts.showError(context, DIALOG_TITLE, e.getMessage());
+			Alerts.showError(context, tr("create.file.title"), e.getMessage());
 			return null;
 		} catch (IOException | UnsupportedOperationException e) {
 			String name = entered[0].trim();
@@ -68,8 +68,8 @@ public final class CreateFileService {
 			if (callback != null) {
 				callback.onError(name, e instanceof Exception ex ? ex : new IOException(e));
 			}
-			Alerts.showError(context, DIALOG_TITLE,
-					e.getMessage() != null ? e.getMessage() : "Could not create file.");
+			Alerts.showError(context, tr("create.file.title"),
+					e.getMessage() != null ? e.getMessage() : tr("create.file.failed"));
 			return null;
 		}
 	}
@@ -77,24 +77,24 @@ public final class CreateFileService {
 	static Path create(Path parent, String enteredName, NuclrPluginCallback callback) throws IOException {
 		String name = enteredName == null ? "" : enteredName.trim();
 		if (name.isBlank()) {
-			throw new IllegalArgumentException("File name is required.");
+			throw new IllegalArgumentException(tr("create.name.required"));
 		}
 		if (isInvalidSingleFileName(name)) {
-			throw new IllegalArgumentException("File name cannot contain path separators.");
+			throw new IllegalArgumentException(tr("create.name.separators"));
 		}
 
 		Path target;
 		try {
 			target = parent.resolve(name);
 		} catch (InvalidPathException e) {
-			throw new IllegalArgumentException("The file name is not valid.", e);
+			throw new IllegalArgumentException(tr("create.name.invalid"), e);
 		}
 		if (Files.exists(target)) {
-			throw new IllegalArgumentException("A file or folder with that name already exists.");
+			throw new IllegalArgumentException(tr("create.name.exists"));
 		}
 
 		if (callback != null) {
-			callback.onStart("Creating file " + name);
+			callback.onStart(tr("create.file.progress", name));
 		}
 		Files.createFile(target);
 		if (callback != null) {

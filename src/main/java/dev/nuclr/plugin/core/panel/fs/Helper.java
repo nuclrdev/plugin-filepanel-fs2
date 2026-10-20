@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.awt.Desktop;
 import java.io.File;
 import java.io.IOException;
@@ -87,7 +89,7 @@ final class Helper {
 	                Desktop.getDesktop().open(parent.toFile());
 	                return;
 	            }
-	            throw new IOException("No supported file manager launcher found");
+	            throw new IOException(tr("panel.reveal.no.launcher"));
 	        }
 	    }
 

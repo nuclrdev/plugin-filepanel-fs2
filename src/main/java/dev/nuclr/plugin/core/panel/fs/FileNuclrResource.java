@@ -17,6 +17,8 @@
 */
 package dev.nuclr.plugin.core.panel.fs;
 
+import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -111,7 +113,7 @@ public final class FileNuclrResource extends NuclrResource {
 
 		if (isFolder()) {
 			if (getName().equals("..")) {
-				this.getMetadata().put("Size", "Up");
+				this.getMetadata().put("Size", tr("resource.size.up"));
 			} else {
 				this.getMetadata().put("Size", "");
 			}
@@ -247,9 +249,9 @@ public final class FileNuclrResource extends NuclrResource {
 
 	private String typeLabel() {
 		if (isFolder()) {
-			return isLink() ? "Folder link" : "Folder";
+			return isLink() ? tr("resource.type.folder.link") : tr("resource.type.folder");
 		}
-		return isLink() ? "File link" : "File";
+		return isLink() ? tr("resource.type.file.link") : tr("resource.type.file");
 	}
 
 	private String attributesLabel() {
