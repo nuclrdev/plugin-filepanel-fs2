@@ -51,7 +51,7 @@ final class DriveInfoDialog {
 	private static final long GB = 1024L * 1024L * 1024L;
 	private static final long MB = 1024L * 1024L;
 	private static final DecimalFormat GROUPED = new DecimalFormat("#,##0");
-	private static final String DASH = "—"; // em dash for unknown values
+	private static final String DASH = "-"; // em dash for unknown values
 
 	private DriveInfoDialog() {
 	}

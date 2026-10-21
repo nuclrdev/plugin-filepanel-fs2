@@ -648,7 +648,7 @@ public final class FindFileDialog extends JDialog {
 		row.add(label);
 		row.add(a);
 		FlatLabel dash = new FlatLabel();
-		dash.setText("–");
+		dash.setText("-");
 		row.add(dash);
 		row.add(b);
 		return row;
