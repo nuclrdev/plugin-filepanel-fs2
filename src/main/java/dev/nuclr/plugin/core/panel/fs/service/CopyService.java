@@ -19,6 +19,7 @@ package dev.nuclr.plugin.core.panel.fs.service;
 
 import static dev.nuclr.plugin.core.panel.fs.Messages.tr;
 
+import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_CLEAR_MARKS;
 import static dev.nuclr.plugin.core.panel.fs.FilePanelPayloadKeys.RESULT_REFRESH_PATHS;
 
 import java.io.InputStream;
@@ -102,8 +103,21 @@ public class CopyService {
 				if (refreshDirectory != null) refreshDirectories.add(refreshDirectory);
 				if (!destinationExisted && !destinationIsTarget && options.getDestination().getParent() != null) refreshDirectories.add(options.getDestination().getParent());
 				putRefreshPaths(data, refreshDirectories);
+				putClearMarks(data);
 			}
 			return completed.get();
+		}
+	}
+
+	/** Ask the source panel to drop its marks: the marked files have been copied. */
+	static void putClearMarks(Map<String, Object> data) {
+		if (data == null) {
+			return;
+		}
+		try {
+			data.put(RESULT_CLEAR_MARKS, Boolean.TRUE);
+		} catch (UnsupportedOperationException ignored) {
+			// Optional host coordination; the marks simply stay.
 		}
 	}
 

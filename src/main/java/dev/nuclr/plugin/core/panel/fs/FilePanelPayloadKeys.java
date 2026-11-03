@@ -14,6 +14,8 @@ public final class FilePanelPayloadKeys {
 	public static final String RESULT_REFRESH = "result.refresh";
 	public static final String RESULT_REFRESH_PATHS = "result.refresh.paths";
 	public static final String RESULT_REFRESH_SELECTED_RESOURCE = "result.refresh.selected.resource";
+	/** Set to {@code true} when the source panel should drop its marks (e.g. after a completed copy). */
+	public static final String RESULT_CLEAR_MARKS = "result.clear.marks";
 	public static final String REFRESH_SOURCE_PLUGIN_UUID = "refresh.source.plugin.uuid";
 
 	private FilePanelPayloadKeys() {
