@@ -108,6 +108,34 @@ class MoveServiceTest {
 		assertTrue(target.explicit());
 	}
 
+	/** Editing the selected folder name means rename, not rename-and-move to the opposite panel. */
+	@Test
+	void changedFolderNameInPrefillRenamesInSourceFolder(@TempDir Path dir) throws IOException {
+		Path src = Files.createDirectory(dir.resolve("src"));
+		Path dst = Files.createDirectory(dir.resolve("dst"));
+		Path folder = Files.createDirectory(src.resolve("old-name"));
+
+		MoveService.MoveTarget target = MoveService.resolveTarget(dst.resolve("new-name"), false,
+				List.of(folder), dst.resolve("old-name"));
+
+		assertEquals(src.resolve("new-name"), target.destination());
+		assertTrue(target.explicit());
+	}
+
+	/** Leaving the pre-filled folder name unchanged still means move to the opposite panel. */
+	@Test
+	void unchangedFolderNameInPrefillStillMoves(@TempDir Path dir) throws IOException {
+		Path src = Files.createDirectory(dir.resolve("src"));
+		Path dst = Files.createDirectory(dir.resolve("dst"));
+		Path folder = Files.createDirectory(src.resolve("folder"));
+		Path prefill = dst.resolve("folder");
+
+		MoveService.MoveTarget target = MoveService.resolveTarget(prefill, false, List.of(folder), prefill);
+
+		assertEquals(prefill, target.destination());
+		assertTrue(target.explicit());
+	}
+
 	/** Unchanged pre-fill for a folder whose name already exists there: merge, never nest foo\foo. */
 	@Test
 	void unchangedPrefillMergesIntoSameNamedFolder(@TempDir Path dir) throws IOException {

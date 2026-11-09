@@ -158,7 +158,9 @@ public class MoveService {
 	 * <li>A trailing separator, or several sources, always names a folder to move into.</li>
 	 * <li>For a single source, the unchanged pre-filled path, the source's own path, or a case-only
 	 * change of its name is used verbatim (merging into a same-named folder rather than nesting
-	 * inside it). Any other existing folder is moved into; anything else is the new path.</li>
+	 * inside it). Editing only the selected name of a folder in the pre-filled destination renames
+	 * that folder in place; otherwise an existing folder is moved into and anything else is the new
+	 * path.</li>
 	 * </ul>
 	 */
 	static MoveTarget resolveTarget(Path typed, boolean intoFolder, List<Path> sources, Path prefillTarget) {
@@ -176,7 +178,22 @@ public class MoveService {
 				|| (prefillTarget != null && MoveEngine.sameLocation(resolved, prefillTarget))) {
 			return new MoveTarget(resolved, true);
 		}
+		if (Files.isDirectory(source) && renamedPrefillName(resolved, prefillTarget)) {
+			return new MoveTarget(source.resolveSibling(resolved.getFileName()), true);
+		}
 		return new MoveTarget(resolved, !Files.isDirectory(resolved));
+	}
+
+	/** True when the dialog's pre-filled destination was left intact except for its final name. */
+	private static boolean renamedPrefillName(Path resolved, Path prefillTarget) {
+		if (prefillTarget == null || resolved.getFileName() == null || prefillTarget.getFileName() == null) {
+			return false;
+		}
+		Path resolvedParent = resolved.getParent();
+		Path prefillParent = prefillTarget.getParent();
+		return resolvedParent != null && prefillParent != null
+				&& MoveEngine.sameLocation(resolvedParent, prefillParent)
+				&& !resolved.getFileName().equals(prefillTarget.getFileName());
 	}
 
 	static void putRefreshResults(Map<String, Object> data, List<Path> sources, Path destination) {
